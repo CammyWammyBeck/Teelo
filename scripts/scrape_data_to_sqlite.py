@@ -8,7 +8,6 @@ import traceback
 from datetime import datetime, timedelta
 from time import sleep
 
-import openpyxl
 import pandas as pd
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup as BS
