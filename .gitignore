@@ -5,3 +5,4 @@ models/
 teelo_app/
 .vs/
 __pycache__/
+venv/

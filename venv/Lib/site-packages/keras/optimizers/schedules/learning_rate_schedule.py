@@ -20,7 +20,7 @@ import math
 import tensorflow.compat.v2 as tf
 
 from keras import backend
-from keras.utils import generic_utils
+from keras.saving.legacy import serialization as legacy_serialization
 
 # isort: off
 from tensorflow.python.util.tf_export import keras_export
@@ -73,13 +73,15 @@ class LearningRateSchedule:
     @abc.abstractmethod
     def __call__(self, step):
         raise NotImplementedError(
-            "Learning rate schedule must override __call__"
+            f"Learning rate schedule '{self.__class__.__name__}' "
+            "must override `__call__(self, step)`."
         )
 
     @abc.abstractmethod
     def get_config(self):
         raise NotImplementedError(
-            "Learning rate schedule must override get_config"
+            f"Learning rate schedule '{self.__class__.__name__}' "
+            "must override `get_config()` in order to be serializable."
         )
 
     @classmethod
@@ -1090,8 +1092,8 @@ class NoisyLinearCosineDecay(LearningRateSchedule):
 
 
 @keras_export("keras.optimizers.schedules.serialize")
-def serialize(learning_rate_schedule):
-    """Serializes a `LearningRateSchedule` into a JSON-compatible representation.
+def serialize(learning_rate_schedule, use_legacy_format=False):
+    """Serializes a `LearningRateSchedule` into a JSON-compatible dict.
 
     Args:
       learning_rate_schedule: The `LearningRateSchedule` object to serialize.
@@ -1106,11 +1108,17 @@ def serialize(learning_rate_schedule):
     >>> tf.keras.optimizers.schedules.serialize(lr_schedule)
     {'class_name': 'ExponentialDecay', 'config': {...}}
     """
-    return generic_utils.serialize_keras_object(learning_rate_schedule)
+    if use_legacy_format:
+        return legacy_serialization.serialize_keras_object(
+            learning_rate_schedule
+        )
+
+    # To be replaced by new serialization_lib
+    return legacy_serialization.serialize_keras_object(learning_rate_schedule)
 
 
 @keras_export("keras.optimizers.schedules.deserialize")
-def deserialize(config, custom_objects=None):
+def deserialize(config, custom_objects=None, use_legacy_format=False):
     """Instantiates a `LearningRateSchedule` object from a serialized form.
 
     Args:
@@ -1137,7 +1145,16 @@ def deserialize(config, custom_objects=None):
     lr_schedule = tf.keras.optimizers.schedules.deserialize(config)
     ```
     """
-    return generic_utils.deserialize_keras_object(
+    if use_legacy_format:
+        return legacy_serialization.deserialize_keras_object(
+            config,
+            module_objects=globals(),
+            custom_objects=custom_objects,
+            printable_module_name="decay",
+        )
+
+    # To be replaced by new serialization_lib
+    return legacy_serialization.deserialize_keras_object(
         config,
         module_objects=globals(),
         custom_objects=custom_objects,

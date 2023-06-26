@@ -816,13 +816,16 @@ def get_atp_fixture_data(driver, tourney):
         for tbody in fixture_list_table.find_all("tbody"):
             matches = tbody.find_all("tr")
             for m in matches:
-                if not m.find(class_="day-table-name"):
-                    continue
-                if m.find("span", class_="tour-association-wta"):
-                    continue
-                if len(m.find(class_="day-table-name").find_all("a")) > 1:
-                    continue
-                if m.find(class_="day-table-score").getText().strip() != "-":
+                try:
+                    if not m.find(class_="day-table-name"):
+                        continue
+                    if m.find("span", class_="tour-association-wta"):
+                        continue
+                    if len(m.find(class_="day-table-name").find_all("a")) > 1:
+                        continue
+                    if m.find(class_="day-table-score").getText().strip() != "-":
+                        continue
+                except:
                     continue
                 fixture = {}
                 round = m.find(class_="day-table-round").getText().strip()
