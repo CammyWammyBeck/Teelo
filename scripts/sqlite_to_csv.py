@@ -2,8 +2,8 @@ import sqlite3
 import pandas as pd
 import os
 
-db_file = "../matches.sqlite"
-output_csv = "../matches_sqlite.csv"
+db_file = "data/matches.sqlite"
+output_csv = "data/matches_sqlite.csv"
 
 # Read the SQLite database
 with sqlite3.connect(db_file) as conn:

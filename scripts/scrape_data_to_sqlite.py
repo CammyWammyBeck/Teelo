@@ -594,7 +594,7 @@ def get_itf_year_data(driver, year, update=False, start_date="", end_date=""):
         ) - timedelta(days=6)
         tourney_date = datetime.strftime(tourney_datetime, "%Y%m%d")
         if update == True:
-            if tourney_datetime < datetime.now() - timedelta(weeks=1):
+            if tourney_datetime < datetime.now() - timedelta(days=10):
                 continue
         else:
             if tourney_datetime < start_date or tourney_datetime > end_date:
@@ -687,7 +687,7 @@ def get_year_data(
             tourney.find(class_="tourney-dates").getText().strip(), "%Y.%m.%d"
         )
         if update == True:
-            if tourney_date < datetime.now() - timedelta(weeks=1):
+            if tourney_date < datetime.now() - timedelta(days=10):
                 continue
         else:
             if tourney_date < start_date or tourney_date > end_date:
@@ -768,18 +768,24 @@ def get_year_data(
 def get_atp_fixture_data(driver, tourney):
     fixture_list = []
     page_loaded = False
-    while not page_loaded:
+    error_count = 0
+    while not page_loaded and error_count < 3:
         try:
             driver.get(
                 f"https://www.atptour.com/en/scores/current/{tourney['tourney_name']}/{tourney['tourney_number']}/daily-schedule"
             )
             sleep(1.5)
-            WebDriverWait(driver, 12).until(
+            WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "dropdown-holder"))
             )
             page_loaded = True
         except:
+            error_count += 1
             sleep(1.5)
+
+    if page_loaded == False:
+        print("No fixture data found for", tourney["tourney_id"])
+        return fixture_list
 
     page_source = BS(driver.page_source, features="html.parser")
 
@@ -794,7 +800,8 @@ def get_atp_fixture_data(driver, tourney):
 
     for value in max_data_values:
         page_loaded = False
-        while not page_loaded:
+        error_count = 0
+        while not page_loaded and error_count < 3:
             try:
                 driver.get(
                     f"https://www.atptour.com/en/scores/current/{tourney['tourney_name']}/{tourney['tourney_number']}/daily-schedule?day={str(value)}"
@@ -807,7 +814,12 @@ def get_atp_fixture_data(driver, tourney):
                 )
                 page_loaded = True
             except:
+                error_count += 1
                 sleep(1.5)
+
+        if page_loaded == False:
+            print("No fixture data found for", tourney["tourney_id"])
+            return fixture_list
 
         fixture_data = BS(driver.page_source, features="html.parser")
         fixture_list_table = fixture_data.find(class_="sectioned-day-tables")
@@ -888,7 +900,7 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
         match_list = []
 
         tourney_datetime = datetime.strptime(tourney["tourney_date"], "%Y%m%d")
-        if tourney_datetime > datetime.now() - timedelta(weeks=1) and tourney[
+        if tourney_datetime > datetime.now() - timedelta(days=10) and tourney[
             "tourney_level"
         ] in ["A", "M", "G"]:
             fixture_list = get_atp_fixture_data(driver, tourney)
