@@ -850,7 +850,11 @@ def get_atp_fixture_data(driver, tourney):
                 B_name = name_data[1].find("a").getText().title()
                 fixture["A_name"] = A_name
                 fixture["B_name"] = B_name
-                print(A_name, "vs", B_name, "in", round, "at", tourney["tourney_id"])
+                fixture["tourney_surface"] = tourney["tourney_surface"]
+                fixture["tourney_level"] = tourney["tourney_level"]
+                fixture["round"] = tourney["round"]
+                fixture["tourney_name"] = tourney["tourney_name"]
+                fixture["tourney_IOC"] = tourney["tourney_IOC"]
                 fixture_list.append(fixture)
 
     fixture_list = fill_match_numbers(fixture_list, tourney)
@@ -940,7 +944,7 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
 
     database_lock = True
     write_to_db(c, conn, total_matches)
-    write_to_pd(tourney, total_fixtures)
+    write_to_pd(total_fixtures)
     database_lock = False
 
 

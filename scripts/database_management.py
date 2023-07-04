@@ -1,4 +1,5 @@
 from time import sleep
+from datetime import datetime
 
 import openpyxl
 import pandas as pd
@@ -40,7 +41,7 @@ def write_to_db(c, conn, match_list):
     print(f"Database updated with data from {len(tourney_ids)} tournaments.")
 
 
-def write_to_pd(tourney, fixture_list):
+def write_to_pd(fixture_list):
     prediction_tourney_data = []
 
     if not fixture_list:
@@ -64,15 +65,15 @@ def write_to_pd(tourney, fixture_list):
         if not is_existing.any():
             # The match does not exist in the Excel file, so add it to the list
             prediction_match = {}
-            prediction_match["tourney_date"] = tourney["tourney_date"]
+            prediction_match["tourney_date"] = m["match_id"].split("-")[0]
             prediction_match["match_id"] = m["match_id"]
             prediction_match["A_name"] = m["A_name"]
             prediction_match["B_name"] = m["B_name"]
-            prediction_match["surface"] = tourney["tourney_surface"]
-            prediction_match["tourney_level"] = tourney["tourney_level"]
+            prediction_match["surface"] = m["tourney_surface"]
+            prediction_match["tourney_level"] = m["tourney_level"]
             prediction_match["round"] = m["round"]
-            prediction_match["tourney_name"] = tourney["tourney_name"]
-            prediction_match["tourney_IOC"] = tourney["tourney_IOC"]
+            prediction_match["tourney_name"] = m["tourney_name"]
+            prediction_match["tourney_IOC"] = m["tourney_IOC"]
 
             prediction_tourney_data.append(prediction_match)
 
