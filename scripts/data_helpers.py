@@ -1,6 +1,6 @@
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from functools import lru_cache
 import requests
@@ -210,3 +210,76 @@ def save_data_to_sqlite(matches):
         conn.executemany(insert_or_replace_query, df.values.tolist())
 
     print(f"SQLite database {db_file} updated with data from matches")
+
+
+def get_match_date(match_id, round, level):
+    """Convert match id in the format TOURNEYSTARTDATE_TOURNEYNUM_MATCHNUM to a datetime object"""
+    tourney_date = datetime.strptime(match_id.split("_")[0], "%Y%m%d")
+    if level == "G":
+        round_adjustment = {
+            "Q1": -3,
+            "Q2": -2,
+            "Q3": -1,
+            "R128": 0,
+            "R64": 3,
+            "R32": 5,
+            "R16": 7,
+            "QF": 9,
+            "SF": 11,
+            "F": 13,
+        }
+        match_number_adjustment = {
+            "SF": 237,
+            "QF": 234,
+            "R16": 228,
+            "R32": 216,
+            "R64": 192,
+            "R128": 144,
+        }
+    elif level == "M":
+        round_adjustment = {
+            "Q1": -2,
+            "Q2": -1,
+            "R64": 0,
+            "R32": 2,
+            "R16": 3,
+            "QF": 4,
+            "SF": 5,
+            "F": 6,
+        }
+        match_number_adjustment = {
+            "R64": 192,
+        }
+    else:
+        round_adjustment = {
+            "Q1": -2,
+            "Q2": -1,
+            "R32": 0,
+            "R16": 2,
+            "QF": 4,
+            "SF": 5,
+            "F": 6,
+        }
+        match_number_adjustment = {
+            "R16": 228,
+            "R32": 216,
+        }
+
+    adjustment = round_adjustment.get(round, 0)
+    match_number_half = match_number_adjustment.get(round, 999)
+    if int(match_id.split("_")[2]) > match_number_half:
+        adjustment += 1
+
+    start_day_adjustment = {
+        1: -1,
+        2: -2,
+        3: -3,
+        4: 3,
+        5: 2,
+        6: 1,
+    }
+
+    if tourney_date.weekday() != 0:
+        adjustment += start_day_adjustment.get(tourney_date.weekday(), 0)
+
+    return tourney_date + relativedelta(days=adjustment)

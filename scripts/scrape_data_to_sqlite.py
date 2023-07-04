@@ -783,7 +783,10 @@ def get_atp_fixture_data(driver, tourney):
             error_count += 1
             sleep(1.5)
 
-    if page_loaded == False:
+    if (
+        page_loaded == False
+        or not driver.current_url.split("/")[-1] == "daily-schedule"
+    ):
         print("No fixture data found for", tourney["tourney_id"])
         return fixture_list
 
@@ -847,6 +850,7 @@ def get_atp_fixture_data(driver, tourney):
                 B_name = name_data[1].find("a").getText().title()
                 fixture["A_name"] = A_name
                 fixture["B_name"] = B_name
+                print(A_name, "vs", B_name, "in", round, "at", tourney["tourney_id"])
                 fixture_list.append(fixture)
 
     fixture_list = fill_match_numbers(fixture_list, tourney)
@@ -870,6 +874,12 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
     driver.set_window_size(window_position["width"], window_position["height"])
     driver.set_window_position(window_position["x"], window_position["y"])
 
+    total_fixtures = []
+    total_matches = []
+
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+
     while not task_queue.empty() and not stop_threads:
         task = task_queue.get()
         tourney = task[1]
@@ -885,15 +895,19 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
             f"Name: {tourney_name_string}. Level: {tourney_level_string}. ID: {tourney_id_string}. IOC: {tourney_ioc_string}"
         )
 
-        conn = sqlite3.connect(db_file)
-        c = conn.cursor()
-
         matches_found = None
         if not overwrite:
             c.execute(
                 "SELECT COUNT(*) FROM tennis_matches WHERE match_id LIKE ?",
                 (f"{tourney_id}%",),
             )
+            matches_found = c.fetchone()[0]
+        else:
+            c.execute(
+                "SELECT COUNT(*) FROM tennis_matches WHERE (match_id LIKE ? AND round = 'F')",
+                (f"{tourney_id}%",),
+            )
+            print("Final found in tournament:", tourney_id)
             matches_found = c.fetchone()[0]
 
         fixture_list = []
@@ -905,7 +919,7 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
         ] in ["A", "M", "G"]:
             fixture_list = get_atp_fixture_data(driver, tourney)
 
-        if matches_found is not None:
+        if matches_found == 1:
             print(f"Skipping {tourney_id} as it already exists in the database.")
         else:
             if tourney["tourney_level"] == "F":
@@ -913,25 +927,21 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
             else:
                 match_list = get_atp_match_data(driver, tourney)
 
-            while database_lock:
-                sleep(3)
-
-            database_lock = True
-            write_to_db(c, conn, tourney_id, match_list)
-            database_lock = False
-
-        if tourney["tourney_level"] != "F" and fixture_list != []:
-            while database_lock:
-                sleep(3)
-
-            database_lock = True
-            write_to_pd(tourney, fixture_list)
-            database_lock = False
+        total_fixtures.extend(fixture_list)
+        total_matches.extend(match_list)
 
         task_queue.task_done()
         position_queue.put(window_position)
 
     driver.quit()
+
+    while database_lock:
+        sleep(3)
+
+    database_lock = True
+    write_to_db(c, conn, total_matches)
+    write_to_pd(tourney, total_fixtures)
+    database_lock = False
 
 
 def scrape_data_to_sqlite(

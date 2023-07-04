@@ -228,6 +228,11 @@ def predict_main():
     conn = sqlite3.connect("data/matches.sqlite")
 
     df = load_data()
+
+    if df["p"].isnull().all():
+        print("No predictions to make")
+        return
+
     X, stats_list = prepare_data(df, conn)  # Receive stats_list
 
     print("Data loaded")

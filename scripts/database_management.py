@@ -2,6 +2,7 @@ from time import sleep
 
 import openpyxl
 import pandas as pd
+from alive_progress import alive_bar
 
 database_lock = False
 
@@ -11,18 +12,24 @@ def get_column_names(cursor, table_name):
     return [col_info[1] for col_info in cursor.fetchall()]
 
 
-def write_to_db(c, conn, tourney_id, match_list):
-    print(f"Writing {tourney_id} to the database.")
-
-    c.execute(
-        "DELETE FROM tennis_matches WHERE match_id LIKE ?",
-        (f"{tourney_id}%",),
+def write_to_db(c, conn, match_list):
+    # Get unique list of tourney_ids from the match_list match_ids
+    tourney_ids = list(
+        set(["_".join(m["match_id"].split("_")[:2]) for m in match_list])
     )
-    conn.commit()
+
+    print("Deleting existing data from the database.")
+    if tourney_ids:  # Make sure there is at least one id to avoid a malformed query
+        query = "DELETE FROM tennis_matches WHERE " + " OR ".join(
+            f"match_id LIKE '{tourney_id}%'" for tourney_id in tourney_ids
+        )
+        c.execute(query)
+        conn.commit()
 
     new_data = pd.DataFrame(match_list)
     existing_columns = get_column_names(c, "tennis_matches")
 
+    print("Writing new data to the database.")
     for key in new_data.columns:
         if key not in existing_columns:
             c.execute(f"ALTER TABLE tennis_matches ADD COLUMN {key} TEXT")
@@ -30,22 +37,25 @@ def write_to_db(c, conn, tourney_id, match_list):
 
     new_data.to_sql("tennis_matches", conn, if_exists="append", index=False)
 
-    print(f"Finished writing {tourney_id} to the database.")
+    print(f"Database updated with data from {len(tourney_ids)} tournaments.")
 
 
 def write_to_pd(tourney, fixture_list):
     prediction_tourney_data = []
 
-    print(f"Writing {tourney['tourney_id']} to the predictions database.")
+    if not fixture_list:
+        return
+
+    print("Writing new data to the Excel file.")
 
     # Load existing data from the Excel file
     existing_data = pd.read_excel("data/predictions.xlsx", sheet_name="Predictions")
 
     for m in fixture_list:
         # Check if the match is already in the existing data
-        tourney_id = m["match_id"][:13]
+        tourney_id = "-".join(m["match_id"].split("-")[:2])
         is_existing = (
-            (existing_data["match_id"].str[:13] == tourney_id)
+            ("-".join(existing_data["match_id"].split("-")[:2]) == tourney_id)
             & (existing_data["A_name"] == m["A_name"])
             & (existing_data["B_name"] == m["B_name"])
             & (existing_data["round"] == m["round"])
@@ -78,4 +88,4 @@ def write_to_pd(tourney, fixture_list):
 
     book.save("data/predictions.xlsx")
 
-    print(f"Finished writing {tourney_id} to the predictions database.")
+    print(f"Excel file updated with data from {len(fixture_list)} matches.")
