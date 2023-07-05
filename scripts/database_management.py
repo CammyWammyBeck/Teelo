@@ -56,7 +56,10 @@ def write_to_pd(fixture_list):
         # Check if the match is already in the existing data
         tourney_id = "-".join(m["match_id"].split("-")[:2])
         is_existing = (
-            ("-".join(existing_data["match_id"].split("-")[:2]) == tourney_id)
+            (
+                existing_data["match_id"].apply(lambda x: "-".join(x.split("-")[:2]))
+                == tourney_id
+            )
             & (existing_data["A_name"] == m["A_name"])
             & (existing_data["B_name"] == m["B_name"])
             & (existing_data["round"] == m["round"])

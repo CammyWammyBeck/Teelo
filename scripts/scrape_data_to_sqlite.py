@@ -852,7 +852,6 @@ def get_atp_fixture_data(driver, tourney):
                 fixture["B_name"] = B_name
                 fixture["tourney_surface"] = tourney["tourney_surface"]
                 fixture["tourney_level"] = tourney["tourney_level"]
-                fixture["round"] = tourney["round"]
                 fixture["tourney_name"] = tourney["tourney_name"]
                 fixture["tourney_IOC"] = tourney["tourney_IOC"]
                 fixture_list.append(fixture)
