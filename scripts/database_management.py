@@ -54,10 +54,10 @@ def write_to_pd(fixture_list):
 
     for m in fixture_list:
         # Check if the match is already in the existing data
-        tourney_id = "-".join(m["match_id"].split("-")[:2])
+        tourney_id = "-".join(m["match_id"].split("_")[:2])
         is_existing = (
             (
-                existing_data["match_id"].apply(lambda x: "-".join(x.split("-")[:2]))
+                existing_data["match_id"].apply(lambda x: "-".join(x.split("_")[:2]))
                 == tourney_id
             )
             & (existing_data["A_name"] == m["A_name"])
@@ -68,7 +68,7 @@ def write_to_pd(fixture_list):
         if not is_existing.any():
             # The match does not exist in the Excel file, so add it to the list
             prediction_match = {}
-            prediction_match["tourney_date"] = m["match_id"].split("-")[0]
+            prediction_match["tourney_date"] = m["match_id"].split("_")[0]
             prediction_match["match_id"] = m["match_id"]
             prediction_match["A_name"] = m["A_name"]
             prediction_match["B_name"] = m["B_name"]
