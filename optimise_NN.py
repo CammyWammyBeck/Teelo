@@ -15,6 +15,8 @@ from scripts.stats import get_all_matches_for_player, get_match_stats
 import logging
 from tqdm import tqdm
 
+from sklearn.metrics import precision_score, recall_score, f1_score, mean_squared_error
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -192,6 +194,10 @@ class NeuralNet:
         self.Y_train = self.Y[self.train_indices]
         self.Y_test = self.Y[self.test_indices]
 
+        # Set up logging
+        logging.basicConfig(filename="training_logs.txt", level=logging.INFO)
+        logging.info("Initialized NeuralNet")
+
     def create_model(
         self,
         layer_1_nodes,
@@ -242,6 +248,18 @@ class NeuralNet:
             )
             model.add(layer_5)
         model.add(Dense(1, activation="sigmoid"))
+
+        logging.info(
+            "Created model with parameters: layer_1_nodes=%s, layer_2_nodes=%s, layer_3_nodes=%s, layer_4_nodes=%s, layer_5_nodes=%s, dropout_rate=%s, regularisation=%s",
+            layer_1_nodes,
+            layer_2_nodes,
+            layer_3_nodes,
+            layer_4_nodes,
+            layer_5_nodes,
+            dropout_rate,
+            regularisation,
+        )
+
         return model
 
     def train_model(self, model, alpha, epochs, batch_size):
@@ -258,6 +276,25 @@ class NeuralNet:
             verbose=2,
             validation_data=(self.X_test, self.Y_test),
         )
+
+        # Calculate metrics on test data
+        test_predictions = (model.predict(self.X_test) > 0.5).astype("int32")
+        precision = precision_score(self.Y_test, test_predictions)
+        recall = recall_score(self.Y_test, test_predictions)
+        f1 = f1_score(self.Y_test, test_predictions)
+
+        logging.info(
+            "Trained model for %s epochs. Training loss: %s, Training accuracy: %s, Validation loss: %s, Validation accuracy: %s, Precision: %s, Recall: %s, F1-score: %s",
+            epochs,
+            history.history["loss"][-1],
+            history.history["accuracy"][-1],
+            history.history["val_loss"][-1],
+            history.history["val_accuracy"][-1],
+            precision,
+            recall,
+            f1,
+        )
+
         return history
 
     def visualize_training(self, history):
@@ -274,6 +311,12 @@ class NeuralNet:
         )
         save_model(model, model_filepath)
         dump(self.X_transformer, transformer_filepath)
+
+        logging.info(
+            "Saved model to %s and transformer to %s",
+            model_filepath,
+            transformer_filepath,
+        )
 
     def load_model(self, model_filepath, transformer_filepath):
         model = load_model(model_filepath)

@@ -7,6 +7,7 @@ import threading
 import traceback
 from datetime import datetime, timedelta
 from time import sleep
+import re
 
 import pandas as pd
 import undetected_chromedriver as uc
@@ -46,13 +47,21 @@ def get_round_string(round_data):
     round = ""
     if round_data == "Finals" or round_data == "Final":
         round = "F"
-    elif round_data == "Semi-Finals" or round_data == "Semifinals":
+    elif (
+        round_data == "Semi-Finals"
+        or round_data == "Semifinals"
+        or round_data == "Semi-finals"
+    ):
         round = "SF"
-    elif round_data == "Quarter-Finals" or round_data == "Quarterfinals":
+    elif (
+        round_data == "Quarter-Finals"
+        or round_data == "Quarterfinals"
+        or round_data == "Quarter-finals"
+    ):
         round = "QF"
-    elif round_data == "Round of 16":
+    elif round_data == "Round of 16" or round_data == "2nd Round":
         round = "R16"
-    elif round_data == "Round of 32":
+    elif round_data == "Round of 32" or round_data == "1st Round":
         round = "R32"
     elif round_data == "Round of 64":
         round = "R64"
@@ -295,7 +304,9 @@ def get_atp_match_data(driver, tourney):
                         if not m.find(class_="day-table-score").find("a"):
                             continue
                         match_number_data = m.find(class_="day-table-score").find("a")
-                        match_score_text = match_number_data.getText()
+                        match_score_text = re.sub(
+                            r"\s+", "_", match_number_data.getText().strip()
+                        )
                         match_data["score"] = match_score_text
                         if "(W/O)" in match_score_text or "(RET)" in match_score_text:
                             continue
@@ -482,9 +493,11 @@ def get_itf_match_data(driver, tourney):
 
 
 def get_itf_round_data(match_list, match_list_container, tourney):
-    round_text = match_list_container.find(
-        class_="drawsheet-round-container__round-title"
-    ).getText()
+    round_text = (
+        match_list_container.find(class_="drawsheet-round-container__round-title")
+        .getText()
+        .strip()
+    )
     round = get_round_string(round_text)
     inner_match_list = match_list_container.find_all(class_="drawsheet-widget__inner")
     for match in inner_match_list:
@@ -492,7 +505,27 @@ def get_itf_round_data(match_list, match_list_container, tourney):
         match_data["A_name"] = ""
         match_data["B_name"] = ""
 
-        match_data["score"] = match.find(class_="drawsheet-widget__score").getText()
+        match_score_data = match.find_all(class_="drawsheet-widget__score")
+        scores = []
+        for score in match_score_data:
+            if score.getText() != "":
+                scores.append(score.getText().strip())
+
+        match_data["score"] = ""
+        for i in range(int(len(scores) / 2)):
+            if i != 0:
+                match_data["score"] += "_"
+            tie_break_score = ""
+            if len(scores[i]) == 2:
+                tie_break_score = scores[i][1]
+                scores[i] = scores[i][0]
+            if len(scores[i + int(len(scores) / 2)]) == 2:
+                tie_break_score += scores[i + int(len(scores) / 2)][1]
+                scores[i + int(len(scores) / 2)] = scores[i + int(len(scores) / 2)][0]
+            match_data["score"] += (
+                scores[i] + scores[i + int(len(scores) / 2)] + tie_break_score
+            )
+
         if match_data["score"] == "":
             continue
 
@@ -884,54 +917,61 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
     c = conn.cursor()
 
     while not task_queue.empty() and not stop_threads:
-        task = task_queue.get()
-        tourney = task[1]
+        try:
+            task = task_queue.get()
+            tourney = task[1]
 
-        tourney_id = tourney["tourney_id"]
+            tourney_id = tourney["tourney_id"]
 
-        tourney_name_string = tourney["tourney_name"]
-        tourney_level_string = tourney["tourney_level"]
-        tourney_id_string = tourney["tourney_id"]
-        tourney_ioc_string = tourney["tourney_IOC"]
+            tourney_name_string = tourney["tourney_name"]
+            tourney_level_string = tourney["tourney_level"]
+            tourney_id_string = tourney["tourney_id"]
+            tourney_ioc_string = tourney["tourney_IOC"]
 
-        print(
-            f"Name: {tourney_name_string}. Level: {tourney_level_string}. ID: {tourney_id_string}. IOC: {tourney_ioc_string}"
-        )
-
-        matches_found = None
-        if not overwrite:
-            c.execute(
-                "SELECT COUNT(*) FROM tennis_matches WHERE match_id LIKE ?",
-                (f"{tourney_id}%",),
+            print(
+                f"Name: {tourney_name_string}. Level: {tourney_level_string}. ID: {tourney_id_string}. IOC: {tourney_ioc_string}"
             )
-            matches_found = c.fetchone()[0]
-        else:
-            c.execute(
-                "SELECT COUNT(*) FROM tennis_matches WHERE (match_id LIKE ? AND round = 'F')",
-                (f"{tourney_id}%",),
-            )
-            print("Final found in tournament:", tourney_id)
-            matches_found = c.fetchone()[0]
 
-        fixture_list = []
-        match_list = []
+            matches_found = None
+            if not overwrite:
+                c.execute(
+                    "SELECT COUNT(*) FROM tennis_matches WHERE (match_id LIKE ? AND round = 'F')",
+                    (f"{tourney_id}%",),
+                )
+                print("Final found in tournament:", tourney_id)
+                matches_found = c.fetchone()[0]
 
-        tourney_datetime = datetime.strptime(tourney["tourney_date"], "%Y%m%d")
-        if tourney_datetime > datetime.now() - timedelta(days=10) and tourney[
-            "tourney_level"
-        ] in ["A", "M", "G"]:
-            fixture_list = get_atp_fixture_data(driver, tourney)
+            fixture_list = []
+            match_list = []
 
-        if matches_found == 1:
-            print(f"Skipping {tourney_id} as it already exists in the database.")
-        else:
-            if tourney["tourney_level"] == "F":
-                match_list = get_itf_match_data(driver, tourney)
+            tourney_datetime = datetime.strptime(tourney["tourney_date"], "%Y%m%d")
+            if tourney_datetime > datetime.now() - timedelta(days=10) and tourney[
+                "tourney_level"
+            ] in ["A", "M", "G"]:
+                fixture_list = get_atp_fixture_data(driver, tourney)
+
+            if matches_found == 1:
+                print(f"Skipping {tourney_id} as it already exists in the database.")
             else:
-                match_list = get_atp_match_data(driver, tourney)
+                if tourney["tourney_level"] == "F":
+                    match_list = get_itf_match_data(driver, tourney)
+                else:
+                    match_list = get_atp_match_data(driver, tourney)
 
-        total_fixtures.extend(fixture_list)
-        total_matches.extend(match_list)
+            total_fixtures.extend(fixture_list)
+            total_matches.extend(match_list)
+
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback_details = traceback.extract_tb(exc_traceback)
+
+            filename = traceback_details[-1].filename
+            line_no = traceback_details[-1].lineno
+            func = traceback_details[-1].name
+
+            print(
+                f"Exception: {e}. File: {filename}. Line: {line_no}. Function: {func}"
+            )
 
         task_queue.task_done()
         position_queue.put(window_position)
@@ -1003,8 +1043,8 @@ def scrape_data_to_sqlite(
         },
     ]
 
-    tasks = queue.PriorityQueue()
     for year in range(start_year, end_year + 1):
+        tasks = queue.PriorityQueue()
         for tennis_level in included_levels:
             driver = uc.Chrome(
                 driver_executable_path=DRIVER_PATH,
@@ -1040,29 +1080,29 @@ def scrape_data_to_sqlite(
             print("Tasks in queue:", tasks.qsize())
             driver.quit()
 
-    # Create a separate queue for window positions
-    position_queue = queue.Queue()
-    for position in window_positions:
-        position_queue.put(position)
+        # Create a separate queue for window positions
+        position_queue = queue.Queue()
+        for position in window_positions:
+            position_queue.put(position)
 
-    threads = []
-    num_threads = 4
-    for _ in range(num_threads):
-        t = threading.Thread(
-            target=worker_thread, args=(tasks, position_queue, db_file, overwrite)
-        )
-        t.start()
-        threads.append(t)
+        threads = []
+        num_threads = 4
+        for _ in range(num_threads):
+            t = threading.Thread(
+                target=worker_thread, args=(tasks, position_queue, db_file, overwrite)
+            )
+            t.start()
+            threads.append(t)
 
-    try:
-        for t in threads:
-            t.join()
-    except KeyboardInterrupt:
-        print("\nInterrupted. Stopping threads...")
-        stop_threads = True
-        for t in threads:
-            t.join()
-        print("Threads stopped. Exiting.")
+        try:
+            for t in threads:
+                t.join()
+        except KeyboardInterrupt:
+            print("\nInterrupted. Stopping threads...")
+            stop_threads = True
+            for t in threads:
+                t.join()
+            print("Threads stopped. Exiting.")
 
 
 if __name__ == "__main__":
