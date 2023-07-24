@@ -1,64 +1,25 @@
+import logging
 import sqlite3
 from datetime import datetime
 from random import random
-from joblib import dump, load
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from keras import optimizers, regularizers
-from keras.layers import Dense, Dropout, Normalization
-from keras.models import Sequential, load_model, save_model
-from sklearn import preprocessing
 from alive_progress import alive_bar
-
-from scripts.stats import get_all_matches_for_player, get_match_stats
-import logging
+from joblib import dump, load
+from keras import optimizers, regularizers
+from keras.layers import Dense, Dropout
+from keras.models import Sequential, load_model, save_model
+from keras.callbacks import Callback
+from sklearn import preprocessing
+from sklearn.metrics import f1_score, precision_score, recall_score
 from tqdm import tqdm
 
-from sklearn.metrics import precision_score, recall_score, f1_score, mean_squared_error
+from config.config import STAT_LABELS
+from scripts.stats import get_all_matches_for_player, get_match_stats
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-labels = [
-    "Hard",
-    "Clay",
-    "Grass",
-    "Carpet",
-    "Future",
-    "Master",
-    "ATP",
-    "Challenger",
-    "Grand Slam",
-    "Q1",
-    "Q2",
-    "Q3",
-    "Q4",
-    "R128",
-    "R64",
-    "R32",
-    "R16",
-    "QF",
-    "SF",
-    "F",
-    "RR",
-    "A_previous_elo",
-    "B_previous_elo",
-    "A_peak_elo",
-    "B_peak_elo",
-    "A_h2h",
-    "B_h2h",
-]
-
-# Adding labels for the performance stats and win-loss stats for both players
-for i in range(16):
-    labels.append("A_performance_stat_" + str(i))
-for i in range(16):
-    labels.append("B_performance_stat_" + str(i))
-for i in range(32):
-    labels.append("A_win_loss_stat_" + str(i))
-for i in range(32):
-    labels.append("B_win_loss_stat_" + str(i))
+labels = STAT_LABELS
 
 swapped_labels = []
 for label in labels:
@@ -85,42 +46,46 @@ class MatchData:
             self.matches = self.load_from_csv("data/training_data.csv")
 
     def load_data(self):
-        logger.debug("Starting load_data")
-        query = "SELECT * FROM tennis_matches WHERE match_id >= '2010' AND tourney_level != 'F' AND tourney_level != 'C' ORDER BY match_id ASC"
+        query = "SELECT * FROM tennis_matches WHERE match_id >= '2008' AND tourney_level != 'F' ORDER BY match_id ASC"
         matches_df = pd.read_sql_query(query, self.conn)
-        logger.debug("Finished load_data")
         return matches_df.to_dict("records")
 
-    def load_from_csv(self, file_path):
-        matches = pd.read_csv(file_path).to_dict("records")
-        for match in tqdm(matches, desc="Loading matches", smoothing=0.8):
-            data_list = [match[label] for label in labels]
-            result = match["result"]
-            self.append_data(data_list, result)
+    def load_from_csv(self, file_path, chunksize=10**4):
+        matches_list = []  # List to hold each chunk
+        for chunk in pd.read_csv(file_path, chunksize=chunksize):
+            # Convert chunk to dict records and append to list
+            matches_list.append(chunk.to_dict("records"))
+            for index, match in tqdm(
+                chunk.iterrows(), desc="Loading matches", smoothing=0.8
+            ):
+                data_list = [match[label] for label in labels]
+                result = match["result"]
+                self.append_data(data_list, result)
+
+        # Concatenate all chunks into one list
+        matches = [item for sublist in matches_list for item in sublist]
         return matches
 
     def process_data(self):
-        logger.debug("Starting process_data")
-        excluded_levels = ["F", "C"]
+        excluded_levels = ["F"]
         with alive_bar(len(self.matches), title="Processing matches") as bar:
             for m in self.matches:
                 self.process_match(m, excluded_levels)
                 bar()
-        logger.debug("Finished process_data")
 
     def process_match(self, m, excluded_levels):
         if random() < 0.5:
-            player_A = m["B_name"]
-            player_B = m["A_name"]
+            player_A = m["B_simplified_name"]
+            player_B = m["A_simplified_name"]
             result = 0
         else:
-            player_A = m["A_name"]
-            player_B = m["B_name"]
+            player_A = m["A_simplified_name"]
+            player_B = m["B_simplified_name"]
             result = 1
 
         match_id = m["match_id"]
 
-        if m["tourney_level"] in excluded_levels or match_id < "2010":
+        if m["tourney_level"] in excluded_levels or match_id < "2008":
             return
 
         if player_A not in self.player_match_dict:
@@ -153,15 +118,34 @@ class MatchData:
 
         self.append_data(data_list, result)
 
-    def append_data(self, data_list, result):
-        if self.X[0][0] == None:
-            self.X = np.array([data_list], dtype=np.float32)
-        else:
-            self.X = np.append(self.X, [data_list], axis=0)
-        if self.Y[0] == None:
-            self.Y = np.array([result], dtype=np.float32)
-        else:
-            self.Y = np.append(self.Y, [result], axis=0)
+    def load_from_csv(self, file_path, chunksize=10**6):
+        X_list = []  # List to hold arrays of data_list for each chunk
+        Y_list = []  # List to hold arrays of result for each chunk
+        matches_list = []  # List to hold each chunk
+
+        for chunk in pd.read_csv(file_path, chunksize=chunksize):
+            chunk_data = []
+            chunk_results = []
+            matches_list.append(chunk.to_dict("records"))
+            for index, match in tqdm(
+                chunk.iterrows(), desc="Loading matches", smoothing=0.8
+            ):
+                data_list = [match[label] for label in labels]
+                result = match["result"]
+                chunk_data.append(data_list)
+                chunk_results.append(result)
+
+            # Append chunk's data_list and result to the lists
+            X_list.append(np.array(chunk_data, dtype=np.float32))
+            Y_list.append(np.array(chunk_results, dtype=np.float32))
+
+        # Concatenate all chunk arrays into one array
+        self.X = np.concatenate(X_list, axis=0) if len(X_list) > 0 else np.array([None])
+        self.Y = np.concatenate(Y_list, axis=0) if len(Y_list) > 0 else np.array([None])
+
+        # Concatenate all chunks into one list
+        matches = [item for sublist in matches_list for item in sublist]
+        return matches
 
     def add_predictions(self, predictions, indices):
         for pred, index in zip(predictions, indices):
@@ -174,8 +158,39 @@ class MatchData:
             self.matches[index]["result"] = self.Y[index]
 
     def save_to_csv(self, path):
+        for i in range(len(self.matches)):
+            match = self.matches[i]
+
+            # if result = 0, swap any A_ labels with B_ labels and vice versa
+            if self.Y[i] == 0:
+                for j in ["A_name", "B_name", "A_simplified_name", "B_simplified_name"]:
+                    temp = match
+                    if "A_" in j:
+                        match[j] = temp[j.replace("A_", "B_")]
+                    elif "B_" in j:
+                        match[j] = temp[j.replace("B_", "A_")]
+
+            for j in range(len(self.X[i])):
+                match[labels[j]] = self.X[i][j]
+            match["result"] = self.Y[i]
+
         matches_df = pd.DataFrame(self.matches)
         matches_df.to_csv(path, index=False)
+
+
+class CustomModelCheckpoint(Callback):
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self.model = model
+        self.best_weights = None
+        self.best_loss = float("inf")
+
+    def on_epoch_end(self, epoch, logs=None):
+        current_val_loss = logs.get("val_loss")
+        if current_val_loss < self.best_loss:
+            self.best_loss = current_val_loss
+            self.best_weights = self.model.get_weights()
+            print("Saving model with loss", current_val_loss)
 
 
 class NeuralNet:
@@ -268,6 +283,9 @@ class NeuralNet:
             optimizer=optimizers.Adam(learning_rate=float(alpha)),
             metrics=["accuracy"],
         )
+
+        checkpoint = CustomModelCheckpoint(model)
+
         history = model.fit(
             self.X_train,
             self.Y_train,
@@ -275,7 +293,12 @@ class NeuralNet:
             batch_size=int(batch_size),
             verbose=2,
             validation_data=(self.X_test, self.Y_test),
+            callbacks=[checkpoint],
         )
+
+        # store the model with the best weights
+        self.best_model = model
+        self.best_model.set_weights(checkpoint.best_weights)
 
         # Calculate metrics on test data
         test_predictions = (model.predict(self.X_test) > 0.5).astype("int32")
@@ -286,13 +309,13 @@ class NeuralNet:
         logging.info(
             "Trained model for %s epochs. Training loss: %s, Training accuracy: %s, Validation loss: %s, Validation accuracy: %s, Precision: %s, Recall: %s, F1-score: %s",
             epochs,
-            history.history["loss"][-1],
-            history.history["accuracy"][-1],
-            history.history["val_loss"][-1],
-            history.history["val_accuracy"][-1],
-            precision,
-            recall,
-            f1,
+            round(history.history["loss"][-1], 5),
+            round(history.history["accuracy"][-1], 5),
+            round(history.history["val_loss"][-1], 5),
+            round(history.history["val_accuracy"][-1], 5),
+            round(precision, 5),
+            round(recall, 5),
+            round(f1, 5),
         )
 
         return history
@@ -302,14 +325,12 @@ class NeuralNet:
         plt.plot(history.history["val_loss"])
         plt.show()
 
-    def save_model(self, model):
+    def save_model(self):
         model_filepath = (
-            f"NN_model/NN_model_{datetime.now().strftime('%Y%m%d-%H%M')}.sav"
+            f"models/NN_model/NN_model_{datetime.now().strftime('%Y%m%d-%H%M')}.sav"
         )
-        transformer_filepath = (
-            f"transformer/NN_transformer_{datetime.now().strftime('%Y%m%d-%H%M')}.sav"
-        )
-        save_model(model, model_filepath)
+        transformer_filepath = f"models/transformer/NN_transformer_{datetime.now().strftime('%Y%m%d-%H%M')}.sav"
+        save_model(self.best_model, model_filepath)
         dump(self.X_transformer, transformer_filepath)
 
         logging.info(
@@ -335,58 +356,70 @@ class NeuralNet:
         match_data.save_to_csv(path)
 
 
-def main(train=True, recalculate_stats=True):
+def main(train=True, recalculate_stats=False):
     conn = sqlite3.connect("data/matches.sqlite")
 
     match_data = MatchData(conn, recalculate_stats)
+
+    match_data.save_to_csv("data/training_data.csv")
 
     nn = NeuralNet(match_data)
 
     if train:
         new_structure = True
         while new_structure:
-            layer_1_nodes = int(input("Number of nodes for layer 1: "))
-            layer_2_nodes = int(input("Number of nodes for layer 2: "))
-            layer_3_nodes = int(input("Number of nodes for layer 3: "))
-            layer_4_nodes = int(input("Number of nodes for layer 4: "))
-            layer_5_nodes = int(input("Number of nodes for layer 5: "))
-            dropout_rate = float(input("Dropout rate: "))
-            regularisation = float(input("Regularisation rate: "))
+            try:
+                layer_1_nodes = int(input("Number of nodes for layer 1: "))
+                layer_2_nodes = int(input("Number of nodes for layer 2: "))
+                layer_3_nodes = int(input("Number of nodes for layer 3: "))
+                layer_4_nodes = int(input("Number of nodes for layer 4: "))
+                layer_5_nodes = int(input("Number of nodes for layer 5: "))
+                dropout_rate = float(input("Dropout rate: "))
+                regularisation = float(input("Regularisation rate: "))
 
-            model = nn.create_model(
-                layer_1_nodes,
-                layer_2_nodes,
-                layer_3_nodes,
-                layer_4_nodes,
-                layer_5_nodes,
-                dropout_rate,
-                regularisation,
-            )
-
-            continue_training = True
-            while continue_training:
-                alpha = float(input("Alpha: "))
-                epochs = int(input("Number of epochs: "))
-                batch_size = int(input("Batch size: "))
-
-                history = nn.train_model(model, alpha, epochs, batch_size)
-
-                nn.visualize_training(history)
-
-                continue_training_input = input(
-                    "Do you want to continue training? (Y/n): "
+                model = nn.create_model(
+                    layer_1_nodes,
+                    layer_2_nodes,
+                    layer_3_nodes,
+                    layer_4_nodes,
+                    layer_5_nodes,
+                    dropout_rate,
+                    regularisation,
                 )
-                if continue_training_input.lower() == "n":
-                    continue_training = False
 
-            new_structure_input = input(
-                "Do you want to restart with a new structure? (Y/n): "
-            )
-            if new_structure_input.lower() == "n":
-                new_structure = False
+                continue_training = True
+                while continue_training:
+                    try:
+                        alpha = float(input("Alpha: "))
+                        epochs = int(input("Number of epochs: "))
+                        batch_size = int(input("Batch size: "))
 
-        nn.save_model(model)
-        nn.predict_and_save(model, match_data, f"data/training_data.csv")
+                        history = nn.train_model(model, alpha, epochs, batch_size)
+
+                        nn.visualize_training(history)
+                    except KeyboardInterrupt:
+                        print("Training stopped.")
+                        continue_training = False
+                    else:
+                        continue_training_input = input(
+                            "Do you want to continue training? (Y/n): "
+                        )
+                        if continue_training_input.lower() == "n":
+                            continue_training = False
+
+                new_structure_input = input(
+                    "Do you want to restart with a new structure? (Y/n): "
+                )
+                if new_structure_input.lower() == "n":
+                    new_structure = False
+            except KeyboardInterrupt:
+                print("You cannot stop the structure creation process.")
+                continue
+
+        save_model_input = input("Do you want to save the model? (Y/n): ")
+        if save_model_input.lower() == "y":
+            nn.save_model()
+            nn.predict_and_save(model, match_data, f"data/training_data.csv")
     else:
         model = nn.load_model("NN_model/NN_model_20230612-1157.sav")
         nn.predict_and_save(model, match_data, f"data/training_data.csv")
