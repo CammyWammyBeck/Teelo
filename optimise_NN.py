@@ -130,6 +130,12 @@ class MatchData:
             for index, match in tqdm(
                 chunk.iterrows(), desc="Loading matches", smoothing=0.8
             ):
+                if match["tourney_level"] == "C":
+                    continue
+                if match["A_wins_weeks_64"] + match["A_losses_weeks_64"] < 10:
+                    continue
+                if match["B_wins_weeks_64"] + match["B_losses_weeks_64"] < 10:
+                    continue
                 data_list = [match[label] for label in labels]
                 result = match["result"]
                 chunk_data.append(data_list)
@@ -158,7 +164,7 @@ class MatchData:
             self.matches[index]["result"] = self.Y[index]
 
     def save_to_csv(self, path):
-        for i in range(len(self.matches)):
+        for i in range(len(self.Y)):
             match = self.matches[i]
 
             # if result = 0, swap any A_ labels with B_ labels and vice versa
@@ -361,7 +367,8 @@ def main(train=True, recalculate_stats=False):
 
     match_data = MatchData(conn, recalculate_stats)
 
-    match_data.save_to_csv("data/training_data.csv")
+    if recalculate_stats:
+        match_data.save_to_csv("data/training_data.csv")
 
     nn = NeuralNet(match_data)
 

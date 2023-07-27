@@ -387,8 +387,8 @@ def get_atp_match_data(driver, tourney):
         ] = match[
             "B_total_points_won"
         ] = ""
-        if "match_link" in match:
-            get_match_stats(driver, match)
+        # if "match_link" in match:
+        #     get_match_stats(driver, match)
 
     df = pd.DataFrame(match_list)
 

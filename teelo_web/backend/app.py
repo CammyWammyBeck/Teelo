@@ -79,7 +79,7 @@ def get_matches():
     if surface:
         query = query.filter(Match.surface.in_(surface))
 
-    matches = query.order_by(desc(Match.match_id)).limit(100).all()
+    matches = query.order_by(desc(Match.match_id)).limit(500).all()
 
     if len(matches) == 0 and player_name != "":
         # search for matches where player_name is in the name
@@ -95,7 +95,7 @@ def get_matches():
                 | (Match.B_name.like(f"%{player_name}%"))
             )
             .order_by(desc(Match.match_id))
-            .limit(100)
+            .limit(500)
             .all()
         )
 
@@ -106,7 +106,7 @@ def get_matches():
         start = timeit.default_timer()
         matches = []
         offset = 0
-        while len(matches) < 100:
+        while len(matches) < 500:
             query = Match.query
             if tourney_level:
                 query = query.filter(Match.tourney_level.in_(tourney_level))
@@ -129,6 +129,54 @@ def get_matches():
         matches = matches[:100]
 
     return jsonify([match.serialize() for match in matches])
+
+
+@app.route("/get_player_elo", methods=["GET"])
+def get_player_elo():
+    player_name = request.args.get("player_name")
+    # tourney_level = request.args.get("tourney_level")
+    # surface = request.args.get("surface")
+
+    # if tourney_level:
+    #     tourney_level = tourney_level.split(",")
+    # if surface:
+    #     surface = surface.split(",")
+
+    query = Match.query
+
+    if player_name and player_name != "":
+        query = query.filter(
+            (Match.A_name == player_name) | (Match.B_name == player_name)
+        )
+    # if tourney_level:
+    #     query = query.filter(Match.tourney_level.in_(tourney_level))
+    # if surface:
+    #     query = query.filter(Match.surface.in_(surface))
+
+    matches = query.order_by(desc(Match.match_id)).all()
+
+    elo_values = []
+    for match in matches:
+        if match.A_name == player_name:
+            elo_values.append(
+                {
+                    "date": get_match_date(
+                        match.match_id, match.round, match.tourney_level
+                    ),
+                    "elo": match.A_elo,
+                }
+            )
+        else:
+            elo_values.append(
+                {
+                    "date": get_match_date(
+                        match.match_id, match.round, match.tourney_level
+                    ),
+                    "elo": match.B_elo,
+                }
+            )
+
+    return jsonify(elo_values)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import sys
 
 import jellyfish
 import joblib
@@ -9,47 +10,17 @@ import pandas as pd
 from alive_progress import alive_bar
 from keras.models import load_model
 
+# Add the parent directory of 'scripts' to sys.path
+parent_dir = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), ".")
+)
+sys.path.append(parent_dir)
+
+from config.config import STAT_LABELS
+from scripts.data_helpers import simplify_name
 from scripts.stats import get_all_matches_for_player, get_match_stats
 
-labels = [
-    "Hard",
-    "Clay",
-    "Grass",
-    "Carpet",
-    "Future",
-    "Master",
-    "ATP",
-    "Challenger",
-    "Grand Slam",
-    "Q1",
-    "Q2",
-    "Q3",
-    "Q4",
-    "R128",
-    "R64",
-    "R32",
-    "R16",
-    "QF",
-    "SF",
-    "F",
-    "RR",
-    "A_previous_elo",
-    "B_previous_elo",
-    "A_peak_elo",
-    "B_peak_elo",
-    "A_h2h",
-    "B_h2h",
-]
-
-# Adding labels for the performance stats and win-loss stats for both players
-for i in range(16):
-    labels.append("A_performance_stat_" + str(i))
-for i in range(16):
-    labels.append("B_performance_stat_" + str(i))
-for i in range(32):
-    labels.append("A_win_loss_stat_" + str(i))
-for i in range(32):
-    labels.append("B_win_loss_stat_" + str(i))
+labels = STAT_LABELS
 
 
 def find_latest_model():
@@ -86,8 +57,8 @@ def prepare_data(df, conn):
                 bar()
                 continue
 
-            player_A = row["A_name"]
-            player_B = row["B_name"]
+            player_A = simplify_name(row["A_name"])
+            player_B = simplify_name(row["B_name"])
 
             if player_A not in player_match_dict:
                 player_A_matches = get_all_matches_for_player(player_A, conn)
@@ -154,7 +125,7 @@ def predict(model, X):
 def find_best_name_match(name, conn):
     cursor = conn.cursor()
     # Replace 'your_table_name' with the appropriate table name.
-    cursor.execute("SELECT A_name, B_name FROM tennis_matches")
+    cursor.execute("SELECT A_simplified_name, B_simplified_name FROM tennis_matches")
     names_in_db = set(
         [row[0] for row in cursor.fetchall()] + [row[1] for row in cursor.fetchall()]
     )
@@ -228,10 +199,6 @@ def predict_main():
     conn = sqlite3.connect("data/matches.sqlite")
 
     df = load_data()
-
-    if df["p"].isnull().all():
-        print("No predictions to make")
-        return
 
     X, stats_list = prepare_data(df, conn)  # Receive stats_list
 

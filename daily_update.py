@@ -4,9 +4,9 @@ from scripts.predict import predict_main
 
 
 def main():
-    scrape_data_to_sqlite(2020, 2022, update=False, overwrite=True)
-    # create_elo(update=True)
-    # predict_main()
+    scrape_data_to_sqlite(2023, 2023, update=True, overwrite=True)
+    create_elo(update=True)
+    predict_main()
 
 
 if __name__ == "__main__":

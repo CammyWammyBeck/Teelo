@@ -138,7 +138,8 @@ def get_ioc_code(location):
 
     # Check if part1 is a country by calling the REST Countries API
     response = requests.get(
-        f"https://restcountries.com/v3.1/name/{part1}?fullText=true"
+        f"https://restcountries.com/v3.1/name/{part1}?fullText=true",
+        verify=False,
     )
     if response.status_code == 200:  # If status is OK, it means it's a country
         data = response.json()
@@ -148,7 +149,8 @@ def get_ioc_code(location):
     # If part1 is not a country, we check if part2 is a country, if it exists
     if part2:
         response = requests.get(
-            f"https://restcountries.com/v3.1/name/{part2}?fullText=true"
+            f"https://restcountries.com/v3.1/name/{part2}?fullText=true",
+            verify=False,
         )
         if response.status_code == 200:  # If status is OK, it means it's a country
             data = response.json()
