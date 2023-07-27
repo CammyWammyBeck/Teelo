@@ -1,6 +1,6 @@
 Archive/
 data/
-models/
+config/
 teelo_app/
 .vs/
 __pycache__/
