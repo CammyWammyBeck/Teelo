@@ -513,6 +513,23 @@ def get_peak_elo(player_name, match_id, matches):
     return player_peak_elo
 
 
+def days_since_debut(player_name, match_id, matches):
+    """
+    Calculate the number of years since a player's debut match.
+    """
+    match_date = datetime.strptime(match_id[:8], "%Y%m%d")
+    player_debut = match_date
+    for match in matches:
+        if (
+            match["A_simplified_name"] == player_name
+            or match["B_simplified_name"] == player_name
+        ):
+            match_date = datetime.strptime(match["match_id"][:8], "%Y%m%d")
+            if match_date < player_debut:
+                player_debut = match_date
+    return (match_date - player_debut).days
+
+
 def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matches):
     """
     Calculate match statistics for a given match.
@@ -552,6 +569,13 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
     )
     X_dict["A_peak_elo"] = get_peak_elo(player_A, match["match_id"], player_A_matches)
     X_dict["B_peak_elo"] = get_peak_elo(player_B, match["match_id"], player_B_matches)
+    X_dict["A_days_since_debut"] = days_since_debut(
+        player_A, match["match_id"], player_A_matches
+    )
+    X_dict["B_days_since_debut"] = days_since_debut(
+        player_B, match["match_id"], player_B_matches
+    )
+
     # (
     #     X_dict["A_last_match_games"],
     #     X_dict["A_tournament_games"],
@@ -568,7 +592,7 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
         match["match_id"],
         player_A_matches,
         [
-            {"weeks": 2000},
+            {"weeks": 99999},
             {"weeks": 128},
             {"weeks": 32},
             {"surface": match["surface"]},
@@ -585,22 +609,31 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
         {"weeks": 16},
         {"weeks": 32},
         {"weeks": 64},
+        {"weeks": 128},
+        {"weeks": 256},
+        {"weeks": 512},
         {"surface": match["surface"], "weeks": 4},
         {"surface": match["surface"], "weeks": 8},
         {"surface": match["surface"], "weeks": 16},
         {"surface": match["surface"], "weeks": 32},
         {"surface": match["surface"], "weeks": 64},
         {"surface": match["surface"], "weeks": 128},
+        {"surface": match["surface"], "weeks": 256},
+        {"surface": match["surface"], "weeks": 512},
         {"IOC": match["tourney_IOC"]},
         {"IOC": match["tourney_IOC"], "weeks": 128},
+        {"IOC": match["tourney_IOC"], "weeks": 256},
         {"tourney_name": match["tourney_name"]},
         {"tourney_name": match["tourney_name"], "weeks": 128},
+        {"tourney_name": match["tourney_name"], "weeks": 256},
         {"round": match["round"]},
         {"round": match["round"], "weeks": 128},
+        {"round": match["round"], "weeks": 256},
         {"tourney_level": match["tourney_level"]},
         {"tourney_level": match["tourney_level"], "weeks": 32},
         {"tourney_level": match["tourney_level"], "weeks": 64},
         {"tourney_level": match["tourney_level"], "weeks": 128},
+        {"tourney_level": match["tourney_level"], "weeks": 256},
         {"tourney_level": match["tourney_level"], "surface": match["surface"]},
         {
             "tourney_level": match["tourney_level"],
@@ -611,6 +644,11 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
             "tourney_level": match["tourney_level"],
             "surface": match["surface"],
             "weeks": 128,
+        },
+        {
+            "tourney_level": match["tourney_level"],
+            "surface": match["surface"],
+            "weeks": 256,
         },
     ]
 
