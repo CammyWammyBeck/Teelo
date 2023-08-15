@@ -1,10 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc
+from sqlalchemy import or_
+from sqlalchemy import case
 from flask_cors import CORS
 import os
 from jellyfish import jaro_winkler_similarity
 import timeit
+from collections import defaultdict
+import datetime
 
 import sys
 import os
@@ -54,6 +58,22 @@ class Match(db.Model):
             "round": self.round,
             "A_elo": int(self.A_elo),
             "B_elo": int(self.B_elo),
+        }
+
+
+class Player(db.Model):
+    __tablename__ = "player_data"
+    player = db.Column(db.String(80), unique=True, nullable=False, primary_key=True)
+    DOB = db.Column(db.String(8), nullable=False)
+    IOC = db.Column(db.String(3), nullable=False)
+    isActive = db.Column(db.Integer, nullable=False)
+
+    def serialize(self):
+        return {
+            "player": self.player,
+            "DOB": self.DOB,
+            "IOC": self.IOC,
+            "isActive": self.isActive,
         }
 
 
@@ -177,6 +197,50 @@ def get_player_elo():
             )
 
     return jsonify(elo_values)
+
+
+@app.route("/get_player_rankings", methods=["GET"])
+def get_player_rankings():
+    num_rankings = request.args.get("num_rankings", default=10, type=int)
+
+    # Get current date
+    current_date = datetime.datetime.now()
+
+    # Querying matches in descending order of match_id
+    # Only query matches that are in the past 12 months
+    matches = (
+        Match.query.filter(
+            Match.match_id > current_date.year * 10000 + (current_date.month - 12) * 100
+        )
+        .order_by(desc(Match.match_id))
+        .all()
+    )
+
+    active_player_data = (
+        Player.query.filter(Player.isActive == 1).order_by(Player.player).all()
+    )
+    active_players = [player.player for player in active_player_data]
+
+    # Looping through matches to get the most recent ELO for each player
+    rankings = {}
+    for match in matches:
+        if match.A_name not in rankings and match.A_name in active_players:
+            rankings[match.A_name] = round(match.A_elo, 0)
+        if match.B_name not in rankings and match.B_name in active_players:
+            rankings[match.B_name] = round(match.B_elo, 0)
+
+    sorted_rankings = sorted(rankings.items(), key=lambda x: x[1], reverse=True)
+
+    # Convert sorted_rankings into list of name-elo pairs with rank number for each
+    sorted_rankings = [
+        {"rank": i + 1, "name": name, "elo": elo}
+        for i, (name, elo) in enumerate(sorted_rankings)
+    ]
+
+    # Return top num_rankings players
+    if num_rankings == 0:
+        return sorted_rankings
+    return sorted_rankings[:num_rankings]
 
 
 if __name__ == "__main__":

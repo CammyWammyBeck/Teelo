@@ -889,7 +889,28 @@ def get_atp_fixture_data(driver, tourney):
                 fixture["tourney_IOC"] = tourney["tourney_IOC"]
                 fixture_list.append(fixture)
 
-    fixture_list = fill_match_numbers(fixture_list, tourney)
+    # add minimum match numbers to each fixture
+    for fixture in fixture_list:
+        if fixture["round"] == "Q1":
+            fixture["match_id"] = tourney["tourney_id"] + "_001"
+        elif fixture["round"] == "Q2":
+            fixture["match_id"] = tourney["tourney_id"] + "_065"
+        elif fixture["round"] == "Q3":
+            fixture["match_id"] = tourney["tourney_id"] + "_097"
+        elif fixture["round"] == "R128":
+            fixture["match_id"] = tourney["tourney_id"] + "_113"
+        elif fixture["round"] == "R64":
+            fixture["match_id"] = tourney["tourney_id"] + "_177"
+        elif fixture["round"] == "R32":
+            fixture["match_id"] = tourney["tourney_id"] + "_209"
+        elif fixture["round"] == "R16":
+            fixture["match_id"] = tourney["tourney_id"] + "_225"
+        elif fixture["round"] == "QF":
+            fixture["match_id"] = tourney["tourney_id"] + "_233"
+        elif fixture["round"] == "SF":
+            fixture["match_id"] = tourney["tourney_id"] + "_237"
+        elif fixture["round"] == "F":
+            fixture["match_id"] = tourney["tourney_id"] + "_239"
 
     print(
         "Returning fixture data for", tourney["tourney_name"], tourney["tourney_date"]
@@ -904,7 +925,7 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
         DRIVER_PATH = "chromedriver.exe"
     elif platform.system() == "Darwin":  # This is the value returned for macOS
         DRIVER_PATH = "chromedriver"
-    driver = uc.Chrome(driver_executable_path=DRIVER_PATH)
+    driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=True)
 
     window_position = position_queue.get()
     driver.set_window_size(window_position["width"], window_position["height"])
@@ -1045,10 +1066,8 @@ def scrape_data_to_sqlite(
 
     for year in range(start_year, end_year + 1):
         tasks = queue.PriorityQueue()
+        driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=True)
         for tennis_level in included_levels:
-            driver = uc.Chrome(
-                driver_executable_path=DRIVER_PATH,
-            )
             if tennis_level == "ITF":
                 tourney_list = get_itf_year_data(
                     driver,
@@ -1078,7 +1097,6 @@ def scrape_data_to_sqlite(
                 tasks.put((tourney["tourney_id"], tourney))
             print("Length of Tournament List:", len(tourney_list))
             print("Tasks in queue:", tasks.qsize())
-            driver.quit()
 
         # Create a separate queue for window positions
         position_queue = queue.Queue()

@@ -189,9 +189,11 @@ def save_predictions(df, predictions, stats_list):
 
 
 def predict_main():
-    latest_model_path = find_latest_model()
+    # latest_model_path = find_latest_model()
+    latest_model_path = "models/NN_model/NN_model_B0230623-2125.sav"
     model = load_model(latest_model_path)
-    latest_transformer_path = find_latest_transformer()
+    # latest_transformer_path = find_latest_transformer()
+    latest_transformer_path = "models/transformer/NN_transformer_B0230623-2125.sav"
     NN_transformer = joblib.load(latest_transformer_path)
 
     print("Models loaded")

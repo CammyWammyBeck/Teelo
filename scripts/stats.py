@@ -33,169 +33,34 @@ def get_quarters_since_played(player_name, match_id, conn):
     return math.floor(months / 3)
 
 
-def get_fatigue_scores(player_name, match_id, matches):
+def get_h2h(player_A_name, player_B_name, match_id, matches):
     """
-    Calculate the total number of games played by a player within certain time periods.
-
-    Args:
-    player_name (str): Name of the player.
-    match_id (str): Match ID to stop calculations before this match (exclusive).
-    matches (list): A list of dictionaries where each dictionary represents a tennis match.
-
-    Returns:
-    list: A list of three integers representing the total number of games played by the player:
-          - in the last match (if it was in the same tournament),
-          - in the current tournament so far,
-          - this year so far.
+    Get the head-to-head record between two players.
     """
-    # Initialize counts
-    last_match_games = 0
-    tournament_games = 0
-    year_games = 0
-
-    # Extract year, tournament from the current match_id
-    current_year = match_id[:4]
-    current_tournament = "_".join(match_id.split("_")[:2])
-
-    # Sort matches by match_id in descending order
-    matches = sorted(matches, key=lambda k: k["match_id"], reverse=True)
-
-    # Iterate through matches in reverse order (most recent first)
+    player_A_h2h = 0
+    player_B_h2h = 0
     for match in matches:
-        if match["match_id"] < match_id:
-            # Check if score is available
-            if not match["score"]:
-                continue
+        if (
+            match["match_id"] >= match_id
+        ):  # Skip matches that occur on or after the given match
+            continue
+        if (
+            match["A_simplified_name"] == player_A_name
+            and match["B_simplified_name"] == player_B_name
+        ):
+            player_A_h2h += 1
+        elif (
+            match["A_simplified_name"] == player_B_name
+            and match["B_simplified_name"] == player_A_name
+        ):
+            player_B_h2h += 1
 
-            # Check if match is finished
-            if "_" not in match["score"]:
-                continue
-
-            # Calculate games in match, ignoring tiebreak scores
-            scores = match["score"].split("_")
-            games = sum(int(score[0]) + int(score[1]) for score in scores)
-
-            # Update yearly count
-            if match["match_id"].startswith(current_year) and (
-                match["A_simplified_name"] == player_name
-                or match["B_simplified_name"] == player_name
-            ):
-                year_games += games
-
-            # Check if the match is in the current tournament
-            if "_".join(match["match_id"].split("_")[:2]) == current_tournament and (
-                match["A_simplified_name"] == player_name
-                or match["B_simplified_name"] == player_name
-            ):
-                # Update tournament count
-                tournament_games += games
-
-                # If this is the first match we've encountered from the current tournament, it's the "last match"
-                if last_match_games == 0:
-                    last_match_games = games
-
-    return [last_match_games, tournament_games, year_games]
-
-
-def get_h2h(player_names, match_id, matches, conditions_list):
-    """
-    Get the head-to-head record between two players based on different conditions.
-
-    Args:
-    player_names (list): List of two players' names [player_A_simplified_name, player_B_simplified_name]
-    match_id (str): Match ID to stop calculations before this match (exclusive).
-    matches (list): A list of dictionaries where each dictionary represents a tennis match.
-    conditions_list (list): A list of dictionaries where each dictionary represents a condition.
-                            Possible keys in the dictionary include:
-                            - weeks: Number of weeks before the match_id.
-                            - surface: Surface type (e.g. 'grass', 'clay', 'hard').
-                            - IOC: International Olympic Committee country code.
-                            - tourney_name: Name of the tournament.
-                            - round: Round of the match (e.g. 'F', 'SF', 'QF', 'R32').
-
-    Returns:
-    list: A list of head-to-head records for each condition provided in the conditions_list.
-          The order of the records in the list corresponds to the order of conditions in the conditions_list.
-    """
-    results = []
-    for condition in conditions_list:
-        weeks = condition.get("weeks")
-        surface = condition.get("surface")
-        IOC = condition.get("IOC")
-        tourney_name = condition.get("tourney_name")
-        round_ = condition.get("round")
-        tourney_level = condition.get("tourney_level")
-
-        filtered_matches = matches.copy()
-
-        if weeks is not None:
-            if match_id:
-                date_obj = datetime.strptime(match_id[:8], "%Y%m%d")
-            else:
-                date_obj = datetime.now()
-            prior_date_obj = date_obj - timedelta(days=weeks * 7)
-            prior_date_string = prior_date_obj.strftime("%Y%m%d")
-            filtered_matches = [
-                match
-                for match in filtered_matches
-                if match["match_id"] > prior_date_string
-                and match["match_id"] < match_id
-            ]
-
-        if surface is not None:
-            filtered_matches = [
-                match for match in filtered_matches if match["surface"] == surface
-            ]
-
-        if IOC is not None:
-            filtered_matches = [
-                match for match in filtered_matches if match["tourney_IOC"] == IOC
-            ]
-
-        if tourney_name is not None:
-            filtered_matches = [
-                match
-                for match in filtered_matches
-                if match["tourney_name"] == tourney_name
-            ]
-
-        if round_ is not None:
-            filtered_matches = [
-                match for match in filtered_matches if match["round"] == round_
-            ]
-
-        if tourney_level is not None:
-            filtered_matches = [
-                match
-                for match in filtered_matches
-                if match["tourney_level"] == tourney_level
-            ]
-
-        player_A_h2h = 0
-        player_B_h2h = 0
-        for match in filtered_matches:
-            if (
-                match["A_simplified_name"] == player_names[0]
-                and match["B_simplified_name"] == player_names[1]
-            ):
-                player_A_h2h += 1
-            elif (
-                match["A_simplified_name"] == player_names[1]
-                and match["B_simplified_name"] == player_names[0]
-            ):
-                player_B_h2h += 1
-
-        results.append([player_A_h2h, player_B_h2h])
-
-    return results
+    return [player_A_h2h, player_B_h2h]
 
 
 def get_previous_elo(player_name, match_id, matches):
-    # Sort matches by match_id, with the most recent match first
-    matches = sorted(matches, key=lambda k: k["match_id"], reverse=True)
-
     # Iterate through the matches in reverse order and find the first one with a match_id less than the given match_id
-    for match in matches:
+    for match in reversed(matches):
         if match["match_id"] < match_id:
             # Get the player's previous elo value
             if match["A_simplified_name"] == player_name:
@@ -239,16 +104,15 @@ def get_win_loss_record(
 ):
     """
     Get win-loss records for a tennis player based on different conditions.
-
     Args:
     player_name (str): Name of the player.
     match_id (str): Match ID to stop calculations before this match (exclusive).
     matches (list): A list of dictionaries where each dictionary represents a tennis match.
                     The dictionary should contain the following keys:
                     - match_id (str): Unique identifier for the match.
-                    - A_simplified_name (str): Name of player A.
+                    - A_name (str): Name of player A.
                     - A_elo (int): Elo rating for player A.
-                    - B_simplified_name (str): Name of player B.
+                    - B_name (str): Name of player B.
                     - B_elo (int): Elo rating for player B.
                     - tourney_name (str): Name of the tournament.
                     - tourney_IOC (str): International Olympic Committee country code for the tournament.
@@ -262,7 +126,6 @@ def get_win_loss_record(
                             - IOC: International Olympic Committee country code.
                             - tourney_name: Name of the tournament.
                             - round: Round of the match (e.g. 'F', 'SF', 'QF', 'R32').
-
     Returns:
     list: A list of tuples (wins, losses) for each condition provided in the conditions_list.
           The order of the tuples in the list corresponds to the order of conditions in the conditions_list.
@@ -365,16 +228,15 @@ def get_elo_performance(
 ):
     """
     Calculate the Elo performance rating for a tennis player based on different conditions.
-
     Args:
     player_name (str): Name of the player.
     match_id (str): Match ID to stop calculations before this match (exclusive).
     matches (list): A list of dictionaries where each dictionary represents a tennis match.
                     The dictionary should contain the following keys:
                     - match_id (str): Unique identifier for the match.
-                    - A_simplified_name (str): Name of player A.
+                    - A_name (str): Name of player A.
                     - A_elo (int): Elo rating for player A.
-                    - B_simplified_name (str): Name of player B.
+                    - B_name (str): Name of player B.
                     - B_elo (int): Elo rating for player B.
                     - tourney_name (str): Name of the tournament.
                     - tourney_IOC (str): International Olympic Committee country code for the tournament.
@@ -389,7 +251,6 @@ def get_elo_performance(
                             - IOC: International Olympic Committee country code.
                             - tourney_name: Name of the tournament.
                             - round: Round of the match (e.g. 'F', 'SF', 'QF', 'R32').
-
     Returns:
     list: A list of Elo performance ratings for each condition provided in the conditions_list.
           The order of the ratings in the list corresponds to the order of conditions in the conditions_list.
@@ -552,31 +413,8 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
     )
     X_dict["A_peak_elo"] = get_peak_elo(player_A, match["match_id"], player_A_matches)
     X_dict["B_peak_elo"] = get_peak_elo(player_B, match["match_id"], player_B_matches)
-    # (
-    #     X_dict["A_last_match_games"],
-    #     X_dict["A_tournament_games"],
-    #     X_dict["A_year_games"],
-    # ) = get_fatigue_scores(player_A, match["match_id"], player_A_matches)
-    # (
-    #     X_dict["B_last_match_games"],
-    #     X_dict["B_tournament_games"],
-    #     X_dict["B_year_games"],
-    # ) = get_fatigue_scores(player_B, match["match_id"], player_B_matches)
-
-    h2h_stats = get_h2h(
-        [player_A, player_B],
-        match["match_id"],
-        player_A_matches,
-        [
-            {"weeks": 2000},
-            {"weeks": 128},
-            {"weeks": 32},
-            {"surface": match["surface"]},
-            {"surface": match["surface"], "weeks": 128},
-            {"IOC": match["tourney_IOC"]},
-            {"tourney_level": match["tourney_level"]},
-            {"round": match["round"]},
-        ],
+    X_dict["A_h2h"], X_dict["B_h2h"] = get_h2h(
+        player_A, player_B, match["match_id"], player_A_matches
     )
 
     performance_conditions = [
@@ -590,28 +428,12 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
         {"surface": match["surface"], "weeks": 16},
         {"surface": match["surface"], "weeks": 32},
         {"surface": match["surface"], "weeks": 64},
-        {"surface": match["surface"], "weeks": 128},
         {"IOC": match["tourney_IOC"]},
-        {"IOC": match["tourney_IOC"], "weeks": 128},
         {"tourney_name": match["tourney_name"]},
-        {"tourney_name": match["tourney_name"], "weeks": 128},
         {"round": match["round"]},
-        {"round": match["round"], "weeks": 128},
         {"tourney_level": match["tourney_level"]},
         {"tourney_level": match["tourney_level"], "weeks": 32},
-        {"tourney_level": match["tourney_level"], "weeks": 64},
-        {"tourney_level": match["tourney_level"], "weeks": 128},
         {"tourney_level": match["tourney_level"], "surface": match["surface"]},
-        {
-            "tourney_level": match["tourney_level"],
-            "surface": match["surface"],
-            "weeks": 64,
-        },
-        {
-            "tourney_level": match["tourney_level"],
-            "surface": match["surface"],
-            "weeks": 128,
-        },
     ]
 
     A_performance_stats = get_elo_performance(
@@ -630,18 +452,12 @@ def get_match_stats(match, player_A, player_B, player_A_matches, player_B_matche
     A_win_loss_stats = [stat for stats in A_win_loss_stats for stat in stats]
     B_win_loss_stats = [stat for stats in B_win_loss_stats for stat in stats]
 
-    h2h_stats_expanded = []
-    for stats in h2h_stats:
-        for stat in stats:
-            h2h_stats_expanded.append(stat)
-
     data_list = (
         list(X_dict.values())
         + A_performance_stats
         + B_performance_stats
         + A_win_loss_stats
         + B_win_loss_stats
-        + h2h_stats_expanded
     )
 
     return data_list

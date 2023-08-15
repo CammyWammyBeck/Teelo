@@ -17,17 +17,15 @@
 
   --palette-divider: #393e41;
 }
-
+/* all children */
 .data-grid-header {
   background-color: #e4572e;
   color: #f8f9f1;
 }
 
-/* Smaller font size for screens less than 600px wide */
-@media (max-width: 600px) {
-  .data-grid-header {
-    font-size: 0.7rem;
-  }
+.data-grid-header div {
+  white-space: break-spaces !important;
+  line-height: normal;
 }
 
 div.no-underline-link a {
@@ -36,7 +34,71 @@ div.no-underline-link a {
 }
 
 .main-container {
-  max-width: 1000px;
   margin-top: 20px;
   margin-bottom: 20px;
+  display: flex;
+  flex-direction: row;
+}
+
+.matches-container {
+  display: flex;
+  flex-direction: column;
+  flex: 2;
+  margin: 1rem;
+}
+
+.filters-container {
+  margin: 1rem;
+}
+
+.player-rankings-container {
+  box-sizing: border-box;
+}
+
+.player-rankings-container div {
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
+.MuiDataGrid-iconButtonContainer,
+.MuiDataGrid-menuIcon {
+  display: none !important;
+}
+
+.ranking-grid-header div {
+  text-align: start !important;
+  justify-content: start !important;
+}
+
+.align-left,
+.align-left div {
+  justify-content: start !important;
+  text-align: start !important;
+}
+
+.fs-7 {
+  font-size: 0.9rem;
+}
+
+.fs-8 {
+  font-size: 0.8rem;
+}
+
+.fs-9 {
+  font-size: 0.7rem;
+}
+
+.fs-10 {
+  font-size: 0.6rem;
+}
+
+/* Smaller font size for screens less than 600px wide */
+@media (max-width: 1000px) {
+  .data-grid-header {
+    font-size: 0.7rem;
+  }
+
+  .main-container {
+    flex-direction: column;
+  }
 }

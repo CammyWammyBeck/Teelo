@@ -40,7 +40,7 @@ function PlayerPage(props) {
           </Typography>
         </Toolbar>
       </AppBar>
-      <div className="main-container mx-md-5 mx-0">
+      <div className="main-container mx-md-5 mx-0 w-50">
         {loading ? <div className="text-center mt-4">Loading...</div> : <LineChart data={data} />}
       </div>
     </>
