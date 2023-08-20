@@ -143,10 +143,26 @@ class MatchData:
             for index, match in tqdm(
                 chunk.iterrows(), desc="Loading matches", smoothing=0.8
             ):
+                if match["match_id"] > "202305":
+                    continue
+
                 data_list = [match[label] for label in labels]
                 result = match["result"]
                 chunk_data.append(data_list)
                 chunk_results.append(result)
+
+                # Create new record for B vs A
+                swapped_data_list = []
+                for label in labels:
+                    if label.startswith("A_"):
+                        swapped_data_list.append(match[label.replace("A_", "B_")])
+                    elif label.startswith("B_"):
+                        swapped_data_list.append(match[label.replace("B_", "A_")])
+                    else:
+                        swapped_data_list.append(match[label])
+                swapped_result = 1 - result
+                chunk_data.append(swapped_data_list)
+                chunk_results.append(swapped_result)
 
             # Append chunk's data_list and result to the lists
             X_list.append(np.array(chunk_data, dtype=np.float32))
@@ -265,6 +281,8 @@ class NeuralNet:
                 activity_regularizer=regularizers.L1(l1=float(regularisation)),
             )
             model.add(layer_2)
+        if dropout_rate != 0:
+            model.add(Dropout(float(dropout_rate)))
         if layer_3_nodes != 0:
             layer_3 = Dense(
                 layer_3_nodes,
@@ -465,7 +483,7 @@ def main(train=True, recalculate_stats=False):
                         if continue_training_input.lower() == "n":
                             continue_training = False
 
-                mask = nn.feature_importance(model, 80)
+                # mask = nn.feature_importance(model, 80)
                 new_structure_input = input(
                     "Do you want to restart with a new structure? (Y/n): "
                 )
@@ -478,7 +496,7 @@ def main(train=True, recalculate_stats=False):
         save_model_input = input("Do you want to save the model? (Y/n): ")
         if save_model_input.lower() == "y":
             nn.save_model()
-            nn.predict_and_save(model, match_data, f"data/training_data.csv")
+            # nn.predict_and_save(model, match_data, f"data/training_data.csv")
     else:
         model = nn.load_model("NN_model/NN_model_20230612-1157.sav")
         nn.predict_and_save(model, match_data, f"data/training_data.csv")
