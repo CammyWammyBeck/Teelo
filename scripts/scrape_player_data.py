@@ -10,6 +10,16 @@ import traceback
 import logging
 from alive_progress import alive_bar
 import csv
+import os
+
+# Add the parent directory of 'scripts' to sys.path
+parent_dir = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), ".")
+)
+sys.path.append(parent_dir)
+
+from scripts.stats import get_all_matches_for_player
+from scripts.data_helpers import simplify_name
 
 # Configure logging
 logging.basicConfig(filename="scraping_logs.log", level=logging.ERROR)
@@ -21,12 +31,12 @@ def main(update=True, included_levels=["G", "M", "A"]):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
 
-    # Create player_data table if it doesn't exist
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS player_data (player TEXT PRIMARY KEY, IOC TEXT, DOB TEXT, isActive INTEGER)"
-    )
-    conn.commit()
-    print("Player data table created/exists")
+    # Check if last_match_id column exists in player_data table, and if not, add it
+    c.execute("PRAGMA table_info(player_data)")
+    columns = [col[1] for col in c.fetchall()]
+    if "last_match_id" not in columns:
+        c.execute("ALTER TABLE player_data ADD COLUMN last_match_id TEXT")
+        conn.commit()
 
     # Fetch existing player data
     c.execute("SELECT player, IOC, DOB, isActive FROM player_data")
@@ -96,6 +106,20 @@ def main(update=True, included_levels=["G", "M", "A"]):
                                 "isActive"
                             ]
                     action = "Scraped"
+
+                if "last_match_id" not in player_data[player]:
+                    player_data[player]["last_match_id"] = None
+
+                if (
+                    player_data[player]["isActive"] == 0
+                    and player_data[player]["last_match_id"] == None
+                ):
+                    matches = get_all_matches_for_player(simplify_name(player), conn)
+                    player_data[player]["last_match_id"] = matches[-1]["match_id"]
+                    print(
+                        f"last_match_id for {player} set to {matches[-1]['match_id']}"
+                    )
+
                 print(f"{action} data for {player}: {player_data[player]}")
                 bar()
     except KeyboardInterrupt:
@@ -114,9 +138,17 @@ def main(update=True, included_levels=["G", "M", "A"]):
     print("Saving player data to csv")
     with open("data/player_data.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["player", "IOC", "DOB", "isActive"])
+        writer.writerow(["player", "IOC", "DOB", "isActive", "last_match_id"])
         for player, info in player_data.items():
-            writer.writerow([player, info["IOC"], info["DOB"], info["isActive"]])
+            writer.writerow(
+                [
+                    player,
+                    info["IOC"],
+                    info["DOB"],
+                    info["isActive"],
+                    info["last_match_id"],
+                ]
+            )
 
     print("Player data saved to csv")
     print("Done")
@@ -214,13 +246,25 @@ def save_player_data_to_sqlite(conn, player_data):
     for player, info in player_data.items():
         if player not in current_player_data:
             c.execute(
-                "INSERT INTO player_data (player, IOC, DOB, isActive) VALUES (?, ?, ?, ?)",
-                (player, info["IOC"], info["DOB"], info["isActive"]),
+                "INSERT INTO player_data (player, IOC, DOB, isActive, last_match_id) VALUES (?, ?, ?, ?, ?)",
+                (
+                    player,
+                    info["IOC"],
+                    info["DOB"],
+                    info["isActive"],
+                    info["last_match_id"],
+                ),
             )
         else:
             c.execute(
-                "UPDATE player_data SET IOC = ?, DOB = ?, isActive = ? WHERE player = ?",
-                (info["IOC"], info["DOB"], info["isActive"], player),
+                "UPDATE player_data SET IOC = ?, DOB = ?, isActive = ?, last_match_id = ? WHERE player = ?",
+                (
+                    info["IOC"],
+                    info["DOB"],
+                    info["isActive"],
+                    info["last_match_id"],
+                    player,
+                ),
             )
     conn.commit()
 

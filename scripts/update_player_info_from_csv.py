@@ -12,11 +12,15 @@ def update_player_info_from_csv(db_file, csv_file_path):
     with open(csv_file_path, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            if row["isActive"] == "":
+                isActive = 0
+            else:
+                isActive = int(row["isActive"])
             player_data[row["player"]] = {
                 "player": row["player"],
                 "IOC": row["IOC"],
                 "DOB": row["DOB"],
-                "isActive": int(row["isActive"]),
+                "isActive": isActive,
             }
 
     # Update or insert the player data into the database

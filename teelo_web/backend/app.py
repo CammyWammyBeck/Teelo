@@ -19,7 +19,7 @@ parent_dir = os.path.abspath(
 )
 sys.path.append(parent_dir)
 
-from scripts.data_helpers import get_match_date
+from scripts.data_helpers import get_match_date, simplify_name
 
 
 app = Flask(__name__)
@@ -39,6 +39,8 @@ class Match(db.Model):
     match_id = db.Column(db.Integer, unique=True, nullable=False, primary_key=True)
     A_name = db.Column(db.String(80), nullable=False)
     B_name = db.Column(db.String(80), nullable=False)
+    A_simplified_name = db.Column(db.String(80), nullable=False)
+    B_simplified_name = db.Column(db.String(80), nullable=False)
     tourney_name = db.Column(db.String(80), nullable=False)
     tourney_level = db.Column(db.String(1), nullable=False)
     surface = db.Column(db.String(10), nullable=False)
@@ -52,6 +54,8 @@ class Match(db.Model):
             "match_date": get_match_date(self.match_id, self.round, self.tourney_level),
             "A_name": self.A_name,
             "B_name": self.B_name,
+            "A_simplified_name": self.A_simplified_name,
+            "B_simplified_name": self.B_simplified_name,
             "tourney_name": self.tourney_name,
             "tourney_level": self.tourney_level,
             "surface": self.surface,
@@ -153,7 +157,7 @@ def get_matches():
 
 @app.route("/get_player_elo", methods=["GET"])
 def get_player_elo():
-    player_name = request.args.get("player_name")
+    player_name = simplify_name(request.args.get("player_name"))
     # tourney_level = request.args.get("tourney_level")
     # surface = request.args.get("surface")
 
@@ -166,7 +170,8 @@ def get_player_elo():
 
     if player_name and player_name != "":
         query = query.filter(
-            (Match.A_name == player_name) | (Match.B_name == player_name)
+            (Match.A_simplified_name == player_name)
+            | (Match.B_simplified_name == player_name)
         )
     # if tourney_level:
     #     query = query.filter(Match.tourney_level.in_(tourney_level))
@@ -177,7 +182,7 @@ def get_player_elo():
 
     elo_values = []
     for match in matches:
-        if match.A_name == player_name:
+        if match.A_simplified_name == player_name:
             elo_values.append(
                 {
                     "date": get_match_date(
