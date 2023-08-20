@@ -3,7 +3,7 @@ import "./styles.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {createTheme, ThemeProvider} from "@mui/material/styles";
 import "./App.css";
-import MatchTable from "./components/MatchTable";
+import HomePage from "./components/HomePage";
 import PlayerPage from "./components/PlayerPage";
 import {BrowserRouter, Routes, Route} from "react-router-dom";
 
@@ -37,7 +37,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/player" Component={PlayerPage} />
-        <Route path="/" exact Component={MatchTable} />
+        <Route path="/" exact Component={HomePage} />
       </Routes>
     </BrowserRouter>
   );

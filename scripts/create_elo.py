@@ -70,6 +70,7 @@ def create_elo(update=True):
                 row["A_simplified_name"],
                 row["B_simplified_name"],
             )
+
             match_id = row["match_id"]
 
             if update:
@@ -108,6 +109,9 @@ def create_elo(update=True):
             player_elo_dict[player_A_name] = A_new_elo
             player_elo_dict[player_B_name] = B_new_elo
 
+            # print(f"{player_A_name}: {A_previous_elo} -> {A_new_elo}")
+            # print(f"{player_B_name}: {B_previous_elo} -> {B_new_elo}")
+
             bar()
 
     if update and update_queries:
@@ -123,4 +127,4 @@ def create_elo(update=True):
 
 
 if __name__ == "__main__":
-    create_elo(update=True)
+    create_elo(update=False)
