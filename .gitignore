@@ -1,8 +1,8 @@
 Archive/
 data/
-config/
 teelo_app/
 .vs/
 __pycache__/
 venv/
 teelo_web/node_modules/
+models/rft/

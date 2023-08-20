@@ -2,6 +2,8 @@ import logging
 import sqlite3
 from datetime import datetime
 from random import random
+import copy
+from sklearn.inspection import permutation_importance
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +20,8 @@ from tqdm import tqdm
 
 from config.config import STAT_LABELS
 from scripts.stats import get_all_matches_for_player, get_match_stats
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import LogisticRegression
 
 labels = STAT_LABELS
 
@@ -46,7 +50,7 @@ class MatchData:
             self.matches = self.load_from_csv("data/training_data.csv")
 
     def load_data(self):
-        query = "SELECT * FROM tennis_matches WHERE match_id >= '2008' AND tourney_level != 'F' ORDER BY match_id ASC"
+        query = "SELECT * FROM tennis_matches WHERE match_id >= '2008' AND tourney_level != 'F' AND tourney_level != 'C' ORDER BY match_id ASC"
         matches_df = pd.read_sql_query(query, self.conn)
         return matches_df.to_dict("records")
 
@@ -67,11 +71,20 @@ class MatchData:
         return matches
 
     def process_data(self):
-        excluded_levels = ["F"]
+        excluded_levels = ["F", "C"]
+        X_list = []  # List to hold arrays of data_list for each chunk
+        Y_list = []  # List to hold arrays of result for each chunk
         with alive_bar(len(self.matches), title="Processing matches") as bar:
             for m in self.matches:
-                self.process_match(m, excluded_levels)
+                X, Y = self.process_match(m, excluded_levels)
+                # Append chunk's data_list and result to the lists
+                X_list.append(X)
+                Y_list.append(Y)
                 bar()
+
+        # Concatenate all chunk arrays into one array
+        self.X = np.array(X_list) if len(X_list) > 0 else np.array([None])
+        self.Y = np.array(Y_list) if len(Y_list) > 0 else np.array([None])
 
     def process_match(self, m, excluded_levels):
         if random() < 0.5:
@@ -116,7 +129,7 @@ class MatchData:
             m, player_A, player_B, player_A_matches, player_B_matches
         )
 
-        self.append_data(data_list, result)
+        return data_list, result
 
     def load_from_csv(self, file_path, chunksize=10**6):
         X_list = []  # List to hold arrays of data_list for each chunk
@@ -130,16 +143,26 @@ class MatchData:
             for index, match in tqdm(
                 chunk.iterrows(), desc="Loading matches", smoothing=0.8
             ):
-                if match["tourney_level"] == "C":
+                if match["match_id"] > "202305":
                     continue
-                if match["A_wins_weeks_64"] + match["A_losses_weeks_64"] < 10:
-                    continue
-                if match["B_wins_weeks_64"] + match["B_losses_weeks_64"] < 10:
-                    continue
+
                 data_list = [match[label] for label in labels]
                 result = match["result"]
                 chunk_data.append(data_list)
                 chunk_results.append(result)
+
+                # Create new record for B vs A
+                swapped_data_list = []
+                for label in labels:
+                    if label.startswith("A_"):
+                        swapped_data_list.append(match[label.replace("A_", "B_")])
+                    elif label.startswith("B_"):
+                        swapped_data_list.append(match[label.replace("B_", "A_")])
+                    else:
+                        swapped_data_list.append(match[label])
+                swapped_result = 1 - result
+                chunk_data.append(swapped_data_list)
+                chunk_results.append(swapped_result)
 
             # Append chunk's data_list and result to the lists
             X_list.append(np.array(chunk_data, dtype=np.float32))
@@ -166,11 +189,11 @@ class MatchData:
     def save_to_csv(self, path):
         for i in range(len(self.Y)):
             match = self.matches[i]
+            temp = copy.deepcopy(match)
 
             # if result = 0, swap any A_ labels with B_ labels and vice versa
             if self.Y[i] == 0:
                 for j in ["A_name", "B_name", "A_simplified_name", "B_simplified_name"]:
-                    temp = match
                     if "A_" in j:
                         match[j] = temp[j.replace("A_", "B_")]
                     elif "B_" in j:
@@ -200,10 +223,24 @@ class CustomModelCheckpoint(Callback):
 
 
 class NeuralNet:
-    def __init__(self, match_data):
+    def __init__(self, match_data, num_features):
         self.X, self.Y = match_data.X, match_data.Y
+
         self.X_transformer = preprocessing.MinMaxScaler().fit(self.X)
         normal_X = self.X_transformer.transform(self.X)
+
+        # # Perform feature selection
+        # estimator = LogisticRegression(max_iter=10000)
+        # selector = RFE(estimator, n_features_to_select=num_features, step=1, verbose=2)
+        # normal_X = selector.fit_transform(normal_X, self.Y)
+
+        # # Print the names and ranking of the features
+        # print("Feature Ranking:")
+        # for i in range(len(selector.ranking_)):
+        #     print(f"Feature {i}: {selector.ranking_[i]}")
+
+        # # Print the mask of selected features
+        # print(f"Feature Selection Mask: {selector.support_}")
 
         # Split into training and test sets
         tt_split = int(len(normal_X) * 8 / 10)
@@ -244,6 +281,8 @@ class NeuralNet:
                 activity_regularizer=regularizers.L1(l1=float(regularisation)),
             )
             model.add(layer_2)
+        if dropout_rate != 0:
+            model.add(Dropout(float(dropout_rate)))
         if layer_3_nodes != 0:
             layer_3 = Dense(
                 layer_3_nodes,
@@ -326,6 +365,36 @@ class NeuralNet:
 
         return history
 
+    def feature_importance(self, model, n_features):
+        # Compute permutation importance
+        result = permutation_importance(
+            model,
+            self.X_test,
+            self.Y_test,
+            scoring="r2",
+            n_repeats=10,
+            random_state=42,
+            n_jobs=1,
+        )
+
+        # Get indices of features sorted by importance
+        sorted_indices = result.importances_mean.argsort()[::-1]
+
+        # Print feature importance
+        print("Feature Importance:")
+        for i in sorted_indices[:n_features]:
+            if result.importances_mean[i] - 2 * result.importances_std[i] > 0:
+                print(
+                    f"Feature {i} - importance: {result.importances_mean[i]:.3f}, std: {result.importances_std[i]:.3f}"
+                )
+
+        # Create feature selection mask
+        mask = [False] * len(self.X_test.columns)
+        for i in sorted_indices[:n_features]:
+            mask[i] = True
+
+        return mask
+
     def visualize_training(self, history):
         plt.plot(history.history["loss"])
         plt.plot(history.history["val_loss"])
@@ -370,10 +439,10 @@ def main(train=True, recalculate_stats=False):
     if recalculate_stats:
         match_data.save_to_csv("data/training_data.csv")
 
-    nn = NeuralNet(match_data)
+    nn = NeuralNet(match_data, 150)
 
     if train:
-        new_structure = True
+        (new_structure) = True
         while new_structure:
             try:
                 layer_1_nodes = int(input("Number of nodes for layer 1: "))
@@ -381,7 +450,7 @@ def main(train=True, recalculate_stats=False):
                 layer_3_nodes = int(input("Number of nodes for layer 3: "))
                 layer_4_nodes = int(input("Number of nodes for layer 4: "))
                 layer_5_nodes = int(input("Number of nodes for layer 5: "))
-                dropout_rate = float(input("Dropout rate: "))
+                (dropout_rate) = float(input("Dropout rate: "))
                 regularisation = float(input("Regularisation rate: "))
 
                 model = nn.create_model(
@@ -399,7 +468,7 @@ def main(train=True, recalculate_stats=False):
                     try:
                         alpha = float(input("Alpha: "))
                         epochs = int(input("Number of epochs: "))
-                        batch_size = int(input("Batch size: "))
+                        (batch_size) = int(input("Batch size: "))
 
                         history = nn.train_model(model, alpha, epochs, batch_size)
 
@@ -414,11 +483,12 @@ def main(train=True, recalculate_stats=False):
                         if continue_training_input.lower() == "n":
                             continue_training = False
 
+                # mask = nn.feature_importance(model, 80)
                 new_structure_input = input(
                     "Do you want to restart with a new structure? (Y/n): "
                 )
                 if new_structure_input.lower() == "n":
-                    new_structure = False
+                    (new_structure) = False
             except KeyboardInterrupt:
                 print("You cannot stop the structure creation process.")
                 continue
@@ -426,7 +496,7 @@ def main(train=True, recalculate_stats=False):
         save_model_input = input("Do you want to save the model? (Y/n): ")
         if save_model_input.lower() == "y":
             nn.save_model()
-            nn.predict_and_save(model, match_data, f"data/training_data.csv")
+            # nn.predict_and_save(model, match_data, f"data/training_data.csv")
     else:
         model = nn.load_model("NN_model/NN_model_20230612-1157.sav")
         nn.predict_and_save(model, match_data, f"data/training_data.csv")

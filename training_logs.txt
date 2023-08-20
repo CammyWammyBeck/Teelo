@@ -190,3 +190,115 @@ INFO:root:Trained model for 500 epochs. Training loss: 0.56549, Training accurac
 INFO:root:Trained model for 500 epochs. Training loss: 0.56359, Training accuracy: 0.70507, Validation loss: 0.57049, Validation accuracy: 0.69441, Precision: 0.69579, Recall: 0.69025, F1-score: 0.69301
 INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230724-2104.sav/assets
 >>>>>>> ddbf05609ba22a4e35a9564de78a316f8dfe2e4b
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=512, layer_2_nodes=256, layer_3_nodes=128, layer_4_nodes=64, layer_5_nodes=0, dropout_rate=0.0, regularisation=0.001
+INFO:root:Trained model for 500 epochs. Training loss: 3.28961, Training accuracy: 0.69073, Validation loss: 3.28234, Validation accuracy: 0.69845, Precision: 0.69752, Recall: 0.69967, F1-score: 0.69859
+INFO:root:Created model with parameters: layer_1_nodes=512, layer_2_nodes=256, layer_3_nodes=128, layer_4_nodes=64, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 10000 epochs. Training loss: 0.55591, Training accuracy: 0.7406, Validation loss: 0.62083, Validation accuracy: 0.68909, Precision: 0.70111, Recall: 0.70831, F1-score: 0.70469
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230729-2130.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230729-2130.sav and transformer to models/transformer/NN_transformer_20230729-2130.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=25, layer_5_nodes=0, dropout_rate=0.6, regularisation=0.0001
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=25, layer_5_nodes=0, dropout_rate=0.6, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.60169, Training accuracy: 0.69852, Validation loss: 0.60822, Validation accuracy: 0.69137, Precision: 0.69248, Recall: 0.70938, F1-score: 0.70083
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.6, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.58448, Training accuracy: 0.70442, Validation loss: 0.59014, Validation accuracy: 0.69625, Precision: 0.69821, Recall: 0.69911, F1-score: 0.69866
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.6, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.58396, Training accuracy: 0.7057, Validation loss: 0.58704, Validation accuracy: 0.6991, Precision: 0.69839, Recall: 0.70759, F1-score: 0.70296
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57811, Training accuracy: 0.70841, Validation loss: 0.58603, Validation accuracy: 0.69885, Precision: 0.69708, Recall: 0.7032, F1-score: 0.70013
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.6, regularisation=0.003
+INFO:root:Trained model for 3000 epochs. Training loss: 0.57965, Training accuracy: 0.70686, Validation loss: 0.58148, Validation accuracy: 0.70552, Precision: 0.70637, Recall: 0.71082, F1-score: 0.70859
+INFO:root:Initialized NeuralNet
+INFO:root:Initialized NeuralNet
+INFO:root:Initialized NeuralNet
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=150, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 5000 epochs. Training loss: 0.58697, Training accuracy: 0.70227, Validation loss: 0.58775, Validation accuracy: 0.69723, Precision: 0.69633, Recall: 0.70469, F1-score: 0.70048
+INFO:root:Trained model for 2000 epochs. Training loss: 0.58231, Training accuracy: 0.70336, Validation loss: 0.58572, Validation accuracy: 0.70015, Precision: 0.69721, Recall: 0.70875, F1-score: 0.70293
+INFO:root:Trained model for 5000 epochs. Training loss: 0.575, Training accuracy: 0.70796, Validation loss: 0.58453, Validation accuracy: 0.69771, Precision: 0.69544, Recall: 0.70583, F1-score: 0.7006
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230730-2139.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230730-2139.sav and transformer to models/transformer/NN_transformer_20230730-2139.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=150, layer_3_nodes=100, layer_4_nodes=50, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=100, layer_2_nodes=50, layer_3_nodes=25, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.5816, Training accuracy: 0.70511, Validation loss: 0.5894, Validation accuracy: 0.69682, Precision: 0.69783, Recall: 0.70412, F1-score: 0.70096
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=100, layer_2_nodes=50, layer_3_nodes=25, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.58035, Training accuracy: 0.70404, Validation loss: 0.59055, Validation accuracy: 0.69975, Precision: 0.69467, Recall: 0.71042, F1-score: 0.70246
+INFO:tensorflow:Assets written to: ram://02812b08-2462-49e9-8725-cc5676ebaaf7/assets
+INFO:tensorflow:Assets written to: ram://cc5882c4-9663-46ce-a8b0-8b688a60617a/assets
+INFO:tensorflow:Assets written to: ram://2cc3a2ef-c1c7-4b46-9bda-74f63f248e25/assets
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 2000 epochs. Training loss: 0.57973, Training accuracy: 0.70698, Validation loss: 0.5963, Validation accuracy: 0.69178, Precision: 0.68918, Recall: 0.69914, F1-score: 0.69412
+INFO:tensorflow:Assets written to: ram://3baf7caf-ff17-4d8c-9614-9ec872b77993/assets
+INFO:tensorflow:Assets written to: ram://edfed765-0475-486e-9efa-42974e0e7ebd/assets
+INFO:tensorflow:Assets written to: ram://95725ad3-1d75-48ef-af89-d8b9e60c9703/assets
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=200, layer_2_nodes=100, layer_3_nodes=50, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.5, regularisation=0.003
+INFO:root:Trained model for 1500 epochs. Training loss: 0.58685, Training accuracy: 0.70261, Validation loss: 0.59116, Validation accuracy: 0.6978, Precision: 0.69975, Recall: 0.70927, F1-score: 0.70448
+INFO:root:Trained model for 1000 epochs. Training loss: 0.5787, Training accuracy: 0.70729, Validation loss: 0.58929, Validation accuracy: 0.69918, Precision: 0.70164, Recall: 0.70703, F1-score: 0.70432
+INFO:root:Initialized NeuralNet
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=32, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-05
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57057, Training accuracy: 0.70176, Validation loss: 0.59305, Validation accuracy: 0.69479, Precision: 0.69566, Recall: 0.69168, F1-score: 0.69367
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=128, layer_2_nodes=64, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-05
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57071, Training accuracy: 0.70311, Validation loss: 0.57596, Validation accuracy: 0.69234, Precision: 0.68689, Recall: 0.691, F1-score: 0.68894
+INFO:root:Trained model for 200 epochs. Training loss: 0.56939, Training accuracy: 0.70262, Validation loss: 0.57579, Validation accuracy: 0.69238, Precision: 0.68627, Recall: 0.69251, F1-score: 0.68938
+INFO:root:Trained model for 500 epochs. Training loss: 0.56559, Training accuracy: 0.70641, Validation loss: 0.57587, Validation accuracy: 0.69288, Precision: 0.6876, Recall: 0.69049, F1-score: 0.68904
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=128, layer_2_nodes=64, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=1e-05
+INFO:root:Trained model for 2000 epochs. Training loss: 0.56873, Training accuracy: 0.70343, Validation loss: 0.57563, Validation accuracy: 0.70092, Precision: 0.69885, Recall: 0.69693, F1-score: 0.69789
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230810-2109.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230810-2109.sav and transformer to models/transformer/NN_transformer_20230810-2109.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=16, layer_2_nodes=16, layer_3_nodes=16, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=1e-05
+INFO:root:Created model with parameters: layer_1_nodes=16, layer_2_nodes=16, layer_3_nodes=16, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-06
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=0, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-05
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57871, Training accuracy: 0.69743, Validation loss: 0.5679, Validation accuracy: 0.70084, Precision: 0.70224, Recall: 0.69899, F1-score: 0.70061
+INFO:root:Trained model for 250 epochs. Training loss: 0.57628, Training accuracy: 0.69959, Validation loss: 0.56777, Validation accuracy: 0.70042, Precision: 0.70061, Recall: 0.70592, F1-score: 0.70325
+INFO:root:Trained model for 500 epochs. Training loss: 0.57565, Training accuracy: 0.6987, Validation loss: 0.56775, Validation accuracy: 0.70009, Precision: 0.6993, Recall: 0.7027, F1-score: 0.701
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57408, Training accuracy: 0.70113, Validation loss: 0.56779, Validation accuracy: 0.70013, Precision: 0.7025, Recall: 0.69792, F1-score: 0.7002
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230810-2126.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230810-2126.sav and transformer to models/transformer/NN_transformer_20230810-2126.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=32, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-06
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=0, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=1e-06
+INFO:root:Trained model for 1000 epochs. Training loss: 0.58066, Training accuracy: 0.69475, Validation loss: 0.57039, Validation accuracy: 0.69541, Precision: 0.69339, Recall: 0.70291, F1-score: 0.69812
+INFO:root:Trained model for 500 epochs. Training loss: 0.57931, Training accuracy: 0.69705, Validation loss: 0.56919, Validation accuracy: 0.69636, Precision: 0.69456, Recall: 0.7006, F1-score: 0.69757
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57608, Training accuracy: 0.69942, Validation loss: 0.56873, Validation accuracy: 0.69562, Precision: 0.69383, Recall: 0.70118, F1-score: 0.69748
+INFO:root:Trained model for 1000 epochs. Training loss: 0.57571, Training accuracy: 0.70103, Validation loss: 0.5687, Validation accuracy: 0.69524, Precision: 0.69493, Recall: 0.69786, F1-score: 0.6964
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230811-2222.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230811-2222.sav and transformer to models/transformer/NN_transformer_20230811-2222.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=32, layer_2_nodes=0, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=1e-06
+INFO:root:Trained model for 1000 epochs. Training loss: 0.59362, Training accuracy: 0.68497, Validation loss: 0.581, Validation accuracy: 0.68981, Precision: 0.69027, Recall: 0.69083, F1-score: 0.69055
+INFO:root:Trained model for 500 epochs. Training loss: 0.58872, Training accuracy: 0.6893, Validation loss: 0.57897, Validation accuracy: 0.69046, Precision: 0.68964, Recall: 0.69132, F1-score: 0.69048
+INFO:root:Trained model for 500 epochs. Training loss: 0.58936, Training accuracy: 0.6891, Validation loss: 0.57949, Validation accuracy: 0.69127, Precision: 0.68687, Recall: 0.69636, F1-score: 0.69158
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230815-1917.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230815-1917.sav and transformer to models/transformer/NN_transformer_20230815-1917.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=32, layer_2_nodes=0, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=1e-05
+INFO:root:Trained model for 1000 epochs. Training loss: 0.59111, Training accuracy: 0.69019, Validation loss: 0.57494, Validation accuracy: 0.69342, Precision: 0.70677, Recall: 0.65951, F1-score: 0.68233
+INFO:root:Trained model for 1000 epochs. Training loss: 0.58925, Training accuracy: 0.69155, Validation loss: 0.57419, Validation accuracy: 0.69371, Precision: 0.70356, Recall: 0.67132, F1-score: 0.68707
+INFO:root:Trained model for 10000 epochs. Training loss: 0.58747, Training accuracy: 0.69285, Validation loss: 0.57385, Validation accuracy: 0.69441, Precision: 0.70224, Recall: 0.67141, F1-score: 0.68648
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230817-1901.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230817-1901.sav and transformer to models/transformer/NN_transformer_20230817-1901.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=16, layer_2_nodes=16, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=0.0001
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=32, layer_2_nodes=32, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.8, regularisation=0.0001
+INFO:root:Trained model for 5000 epochs. Training loss: 0.60533, Training accuracy: 0.68903, Validation loss: 0.58009, Validation accuracy: 0.69102, Precision: 0.702, Recall: 0.67328, F1-score: 0.68734
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230817-1920.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230817-1920.sav and transformer to models/transformer/NN_transformer_20230817-1920.sav
+INFO:root:Initialized NeuralNet
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=32, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.75, regularisation=0.0003
+INFO:root:Created model with parameters: layer_1_nodes=64, layer_2_nodes=32, layer_3_nodes=0, layer_4_nodes=0, layer_5_nodes=0, dropout_rate=0.7, regularisation=0.0003
+INFO:root:Trained model for 5000 epochs. Training loss: 0.58229, Training accuracy: 0.70321, Validation loss: 0.5746, Validation accuracy: 0.69284, Precision: 0.69978, Recall: 0.68912, F1-score: 0.69441
+INFO:tensorflow:Assets written to: models/NN_model/NN_model_20230817-1951.sav\assets
+INFO:root:Saved model to models/NN_model/NN_model_20230817-1951.sav and transformer to models/transformer/NN_transformer_20230817-1951.sav

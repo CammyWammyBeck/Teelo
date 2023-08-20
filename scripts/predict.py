@@ -48,13 +48,15 @@ def prepare_data(df, conn):
     X = {"AB": [], "BA": []}
     stats_list = []  # Added to store all calculated stats
 
-    num_matches = len(df)
+    # Count matches where "p" is blank or null
+    num_matches_to_predict = len(
+        df[(df["p"] == "") | (df["p"].isnull())]
+    )  # Matches to predict
 
-    with alive_bar(num_matches) as bar:
+    with alive_bar(num_matches_to_predict) as bar:
         for index, row in df.iterrows():
             # Skip rows that already have a p value
             if row["p"] != "" and pd.notnull(row["p"]):
-                bar()
                 continue
 
             player_A = simplify_name(row["A_name"])
@@ -165,7 +167,7 @@ def swap_players(row):
 
 
 def save_predictions(df, predictions, stats_list):
-    data_path = "data/predictions.xlsx"
+    data_path = "data/predictions_test.xlsx"
     book = openpyxl.load_workbook(data_path)
     ws = book["Predictions"]
 
@@ -189,11 +191,9 @@ def save_predictions(df, predictions, stats_list):
 
 
 def predict_main():
-    # latest_model_path = find_latest_model()
-    latest_model_path = "models/NN_model/NN_model_B0230623-2125.sav"
+    latest_model_path = find_latest_model()
     model = load_model(latest_model_path)
-    # latest_transformer_path = find_latest_transformer()
-    latest_transformer_path = "models/transformer/NN_transformer_B0230623-2125.sav"
+    latest_transformer_path = find_latest_transformer()
     NN_transformer = joblib.load(latest_transformer_path)
 
     print("Models loaded")
