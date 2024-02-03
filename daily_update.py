@@ -1,13 +1,96 @@
 from scripts.create_elo import create_elo
 from scripts.scrape_data_to_sqlite import scrape_data_to_sqlite
 from scripts.predict import predict_main
+import datetime
+import time
+from scripts.twitter_bot import TwitterBot
+from scripts.database_management import delete_tourney
+import sqlite3
 
 
-def main():
-    scrape_data_to_sqlite(2023, 2023, update=True, overwrite=False)
+def process_and_tweet_matches(predicted_matches):
+    bot = TwitterBot(
+        "ywuziqAU1DH4mrCGe10gAtlC6",
+        "7im4z2WEj47uoK3GlnyjxMRARQ9ZHXLpUsVZqRgt6ZUVoLfrA5",
+        "1477453250471215104-Aa8njjg8JVGbJZo3n3CoCGhyNlJE2r",
+        "Xuu9DQ82TjrSE4EgZLR4YXyjmrhoF1iviYvKN6lxgHexc",
+    )
+
+    if len(predicted_matches) > 0:
+        strings_to_tweet = []
+        tweet = ""
+        print("Tweeting predictions", predicted_matches)
+        for match in predicted_matches:
+            sub_tweet = (
+                f"{match['prediction']*100:.2f}%/{(1-match['prediction'])*100:.2f}% - "
+                f"{match['A_name'].strip()} vs. {match['B_name'].strip()}, "
+                f"{match['tourney_name'].replace('-', ' ').title()}, {match['round']}"
+            )
+
+            print(sub_tweet)
+
+            if len(tweet) + len(sub_tweet) > 280 - 41:
+                strings_to_tweet.append(
+                    tweet + "\n#tennis #atp #elo #sportstips #tennistips"
+                )
+                tweet = ""
+
+            tweet += "\n" + sub_tweet
+
+        if len(tweet) > 0:
+            strings_to_tweet.append(
+                tweet + "\n#tennis #atp #elo #sportstips #tennistips"
+            )
+
+        print(strings_to_tweet)
+
+        response = bot.tweet(strings_to_tweet, tweet_as_thread=True)
+        if response:
+            for tweet_response in response:
+                print(f"Tweeted: {tweet_response})")
+        else:
+            print("Error tweeting predictions")
+
+
+def update():
+    # conn = sqlite3.connect("data/matches.sqlite")
+    # c = conn.cursor()
+
+    # delete_tourney(c, conn, "2024", "9158")
+
+    # conn.close()
+
+    scrape_data_to_sqlite(2024, 2024, update=True, overwrite=False)
     create_elo(update=True)
-    predict_main()
+    predicted_matches = predict_main()
+    process_and_tweet_matches(predicted_matches)
+    return
 
 
 if __name__ == "__main__":
-    main()
+    run_scheduler = True
+    run_input = input("Run scheduler? (y/n): ")
+    if run_input.lower() == "n":
+        run_scheduler = False
+
+    update()
+    print(f"Database updated at {datetime.datetime.now()}")
+
+    if not run_scheduler:
+        exit()
+
+    last_update = datetime.datetime.now()
+
+    while True:
+        now = datetime.datetime.now()
+        seconds_before_next_update = (
+            last_update + datetime.timedelta(hours=3) - now
+        ).total_seconds()
+
+        if seconds_before_next_update < 0:
+            last_update = now
+            update()
+            print(f"Database updated at {now}")
+        else:
+            print(f"Next update at {last_update + datetime.timedelta(hours=3)}")
+            time.sleep(max(60, seconds_before_next_update))

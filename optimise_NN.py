@@ -50,55 +50,56 @@ class MatchData:
             self.matches = self.load_from_csv("data/training_data.csv")
 
     def load_data(self):
-        query = "SELECT * FROM tennis_matches WHERE match_id >= '2008' AND tourney_level != 'F' AND tourney_level != 'C' ORDER BY match_id ASC"
+        query = "SELECT * FROM tennis_matches WHERE match_id >= '2000' AND tourney_level != 'F' ORDER BY match_id ASC"
         matches_df = pd.read_sql_query(query, self.conn)
         return matches_df.to_dict("records")
 
-    def load_from_csv(self, file_path, chunksize=10**4):
-        matches_list = []  # List to hold each chunk
-        for chunk in pd.read_csv(file_path, chunksize=chunksize):
-            # Convert chunk to dict records and append to list
-            matches_list.append(chunk.to_dict("records"))
-            for index, match in tqdm(
-                chunk.iterrows(), desc="Loading matches", smoothing=0.8
-            ):
-                data_list = [match[label] for label in labels]
-                result = match["result"]
-                self.append_data(data_list, result)
-
-        # Concatenate all chunks into one list
-        matches = [item for sublist in matches_list for item in sublist]
-        return matches
-
     def process_data(self):
-        excluded_levels = ["F", "C"]
+        excluded_levels = ["F"]
         X_list = []  # List to hold arrays of data_list for each chunk
         Y_list = []  # List to hold arrays of result for each chunk
         with alive_bar(len(self.matches), title="Processing matches") as bar:
             for m in self.matches:
-                X, Y = self.process_match(m, excluded_levels)
+                if m["tourney_level"] in excluded_levels:
+                    bar()
+                    continue
+
+                X, Y = self.process_match(m, 1)
                 # Append chunk's data_list and result to the lists
                 X_list.append(X)
                 Y_list.append(Y)
+
+                swapped_match = copy.deepcopy(m)
+                (
+                    swapped_match["A_name"],
+                    swapped_match["B_name"],
+                    swapped_match["A_simplified_name"],
+                    swapped_match["B_simplified_name"],
+                ) = (
+                    m["B_name"],
+                    m["A_name"],
+                    m["B_simplified_name"],
+                    m["A_simplified_name"],
+                )
+
+                X, Y = self.process_match(swapped_match, 0)
+                # Append chunk's data_list and result to the lists
+                X_list.append(X)
+                Y_list.append(Y)
+
                 bar()
 
         # Concatenate all chunk arrays into one array
         self.X = np.array(X_list) if len(X_list) > 0 else np.array([None])
         self.Y = np.array(Y_list) if len(Y_list) > 0 else np.array([None])
 
-    def process_match(self, m, excluded_levels):
-        if random() < 0.5:
-            player_A = m["B_simplified_name"]
-            player_B = m["A_simplified_name"]
-            result = 0
-        else:
-            player_A = m["A_simplified_name"]
-            player_B = m["B_simplified_name"]
-            result = 1
+    def process_match(self, m, result):
+        player_A = m["A_simplified_name"]
+        player_B = m["B_simplified_name"]
 
         match_id = m["match_id"]
 
-        if m["tourney_level"] in excluded_levels or match_id < "2008":
+        if match_id < "2000":
             return
 
         if player_A not in self.player_match_dict:
@@ -187,24 +188,38 @@ class MatchData:
             self.matches[index]["result"] = self.Y[index]
 
     def save_to_csv(self, path):
-        for i in range(len(self.Y)):
-            match = self.matches[i]
-            temp = copy.deepcopy(match)
+        # Initialize a new list to hold unique matches
+        unique_matches = []
 
-            # if result = 0, swap any A_ labels with B_ labels and vice versa
+        # Iterate over pairs of matches to de-duplicate
+        for i in range(0, len(self.Y), 2):
+            original_match = self.matches[i // 2]
+            copied_match = copy.deepcopy(original_match)
+
+            # If the result is 0, swap labels for player A and player B
             if self.Y[i] == 0:
-                for j in ["A_name", "B_name", "A_simplified_name", "B_simplified_name"]:
-                    if "A_" in j:
-                        match[j] = temp[j.replace("A_", "B_")]
-                    elif "B_" in j:
-                        match[j] = temp[j.replace("B_", "A_")]
+                for label in [
+                    "A_name",
+                    "B_name",
+                    "A_simplified_name",
+                    "B_simplified_name",
+                ]:
+                    if "A_" in label:
+                        original_match[label] = copied_match[label.replace("A_", "B_")]
+                    elif "B_" in label:
+                        original_match[label] = copied_match[label.replace("B_", "A_")]
 
-            for j in range(len(self.X[i])):
-                match[labels[j]] = self.X[i][j]
-            match["result"] = self.Y[i]
+            # Update match statistics and result
+            for j, label in enumerate(labels):
+                original_match[label] = self.X[i][j]
+            original_match["result"] = self.Y[i]
 
-        matches_df = pd.DataFrame(self.matches)
-        matches_df.to_csv(path, index=False)
+            # Append the de-duplicated match to the list
+            unique_matches.append(original_match)
+
+        # Convert the list of unique matches to a DataFrame and save it to a CSV file
+        unique_matches_df = pd.DataFrame(unique_matches)
+        unique_matches_df.to_csv(path, index=False)
 
 
 class CustomModelCheckpoint(Callback):
@@ -228,19 +243,6 @@ class NeuralNet:
 
         self.X_transformer = preprocessing.MinMaxScaler().fit(self.X)
         normal_X = self.X_transformer.transform(self.X)
-
-        # # Perform feature selection
-        # estimator = LogisticRegression(max_iter=10000)
-        # selector = RFE(estimator, n_features_to_select=num_features, step=1, verbose=2)
-        # normal_X = selector.fit_transform(normal_X, self.Y)
-
-        # # Print the names and ranking of the features
-        # print("Feature Ranking:")
-        # for i in range(len(selector.ranking_)):
-        #     print(f"Feature {i}: {selector.ranking_[i]}")
-
-        # # Print the mask of selected features
-        # print(f"Feature Selection Mask: {selector.support_}")
 
         # Split into training and test sets
         tt_split = int(len(normal_X) * 8 / 10)
@@ -291,6 +293,8 @@ class NeuralNet:
                 activity_regularizer=regularizers.L1(l1=float(regularisation)),
             )
             model.add(layer_3)
+        if dropout_rate != 0:
+            model.add(Dropout(float(dropout_rate)))
         if layer_4_nodes != 0:
             layer_4 = Dense(
                 layer_4_nodes,
@@ -503,4 +507,4 @@ def main(train=True, recalculate_stats=False):
 
 
 if __name__ == "__main__":
-    main()
+    main(recalculate_stats=True)

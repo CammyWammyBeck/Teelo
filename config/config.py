@@ -73,12 +73,14 @@ labels = [
     "B_peak_elo",
     "A_days_since_debut",
     "B_days_since_debut",
-    # "A_last_match_games",
-    # "A_tournament_games",
-    # "A_year_games",
-    # "B_last_match_games",
-    # "B_tournament_games",
-    # "B_year_games",
+    "A_last_match_games",
+    "A_tournament_games",
+    "A_week_games",
+    "A_month_games",
+    "B_last_match_games",
+    "B_tournament_games",
+    "B_week_games",
+    "B_month_games",
 ]
 
 h2h_labels = [
@@ -88,6 +90,15 @@ h2h_labels = [
     "surface",
     "surface_weeks_128",
     "IOC",
+    "tourney_level",
+    "round",
+]
+
+variance_labels = [
+    "weeks_64",
+    "weeks_256",
+    "weeks_99999",
+    "surface",
     "tourney_level",
     "round",
 ]
@@ -104,8 +115,12 @@ for label in performance_labels:
 for label in performance_labels:
     labels.append("B_wins_" + label)
     labels.append("B_losses_" + label)
-# for label in h2h_labels:
-#     labels.append("A_h2h_" + label)
-#     labels.append("B_h2h_" + label)
+for label in h2h_labels:
+    labels.append("A_h2h_" + label)
+    labels.append("B_h2h_" + label)
+for label in variance_labels:
+    labels.append("A_variance_" + label)
+for label in variance_labels:
+    labels.append("B_variance_" + label)
 
 STAT_LABELS = labels

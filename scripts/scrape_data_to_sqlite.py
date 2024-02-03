@@ -17,6 +17,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+# Add the parent directory of 'scripts' to sys.path
+parent_dir = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), ".")
+)
+sys.path.append(parent_dir)
+
 from scripts.data_helpers import get_ioc_code
 from scripts.database_management import write_to_db, write_to_pd, database_lock
 
@@ -81,37 +87,33 @@ def get_round_string(round_data):
 
 
 def fill_match_numbers(match_list, tourney):
-    count = 239
-    current_round = "F"
+    prefix = "00"
     for match in match_list:
-        if match["round"] != current_round:
-            match match["round"]:
-                case "F":
-                    count = 239
-                case "SF":
-                    count = 238
-                case "QF":
-                    count = 236
-                case "R16":
-                    count = 232
-                case "R32":
-                    count = 224
-                case "R64":
-                    count = 208
-                case "R128":
-                    count = 176
-                case "Q3":
-                    count = 112
-                case "Q2":
-                    count = 96
-                case "Q1":
-                    count = 64
-                case _:
-                    count = 0
-            current_round = match["round"]
+        match match["round"]:
+            case "F":
+                prefix = "10"
+            case "SF":
+                prefix = "09"
+            case "QF":
+                prefix = "08"
+            case "R16":
+                prefix = "07"
+            case "R32":
+                prefix = "06"
+            case "R64":
+                prefix = "05"
+            case "R128":
+                prefix = "04"
+            case "Q3":
+                prefix = "03"
+            case "Q2":
+                prefix = "02"
+            case "Q1":
+                prefix = "01"
+            case _:
+                prefix = "00"
 
-        match["match_id"] = f"{tourney['tourney_id']}_{str(count).zfill(3)}"
-        count -= 1
+        match["match_id"] = f"{tourney['tourney_id']}_{str(prefix)}"
 
     return match_list
 
@@ -255,97 +257,184 @@ def get_match_stats(driver, match):
                 print(f"{match['match_id']} stats not found after four attempts")
 
 
+def get_atp_tourney_surface(driver, tourney):
+    tourney_read = False
+    error_count = 0
+    while not tourney_read and error_count < 3:
+        link_parts = tourney["tourney_link"].split("/")
+        if "current" not in link_parts:
+            overview_link = [part for part in link_parts if part != link_parts[-2]]
+        else:
+            overview_link = link_parts.copy()
+        overview_link = "/".join(overview_link)
+        overview_link = overview_link.replace("results", "overview")
+        overview_link = overview_link.replace("scores/current", "tournaments")
+        overview_link = overview_link.replace("scores/archive", "tournaments")
+
+        try:
+            driver.get(f"https://www.atptour.com{overview_link}")
+
+            # wait for the page to load
+            try:
+                WebDriverWait(driver, 3).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "tourn_details"))
+                )
+            except Exception as e:
+                error_count += 1
+                print("Error count: ", error_count)
+                sleep(5)
+                if error_count > 2:
+                    return "Hard"
+                continue
+
+            tourney_data = BS(driver.page_source, features="html.parser")
+            tourney_surface = (
+                tourney_data.find(class_="tourn_details")
+                .find(class_="td_left")
+                .find_all("li")[1]
+                .find_all("span")[1]
+                .getText()
+                .strip()
+            )
+
+            return tourney_surface
+
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback_details = traceback.extract_tb(exc_traceback)
+            print(
+                "Error getting ATP tourney surface.",
+                traceback_details[-1].filename,
+                traceback_details[-1].lineno,
+                traceback_details[-1].name,
+                e,
+            )
+
+            error_count += 1
+
+    return "Hard"
+
+
 def get_atp_match_data(driver, tourney):
     tourney_read = False
     error_count = 0
     while not tourney_read:
         match_list = []
         try:
-            driver.get(f"https://www.atptour.com/{tourney['tourney_link']}")
+            tourney_surface = get_atp_tourney_surface(driver, tourney)
+            driver.get(f"https://www.atptour.com{tourney['tourney_link']}")
             try:
                 # Check if results exist, if not, error
-                e = WebDriverWait(driver, 1.5).until(
-                    EC.presence_of_element_located(
-                        (By.XPATH, '//*[@id="scoresResultsContent"]/div')
-                    )
+                e = WebDriverWait(driver, 3).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "match"))
                 )
             except Exception as e:
-                try:
-                    # Check if no results exist, if not, error
-                    print("Results not found")
-                    e = WebDriverWait(driver, 0.5).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "wrapper-404"))
-                    )
-                    tourney_read = True
-                    print("No games")
+                error_count += 1
+                print("Error count: ", error_count)
+                sleep(5)
+                if error_count > 2:
                     return match_list
-                except Exception as e:
-                    error_count += 1
-                    print("Error count: ", error_count)
-                    if error_count > 2:
-                        return match_list
-                    # If results exist == False and no results exist == False, there must be an error, try again
-                    continue
+                # If results exist == False and no results exist == False, there must be an error, try again
+                continue
 
             tourney_match_data = BS(driver.page_source, features="html.parser")
-            match_list_table = tourney_match_data.find(class_="day-table")
-            match_list_data = match_list_table.children
-            round = ""
+            match_list_data = tourney_match_data.find_all(class_="match")
+            print("Matches found:", len(match_list_data))
             for match in match_list_data:
-                if match.name == "thead":
-                    round_data = match.find("th").getText()
-                    round = get_round_string(round_data)
-                elif match.name == "tbody":
-                    if round == "":
+                round_data = match.find(class_="match-header").find("span").getText()
+                round_text = round_data.split(" - ")[0].strip()
+                round = get_round_string(round_text)
+                if round == "":
+                    print(f"Round {round_text} not found")
+                    continue
+                match_data = {}
+                match_number_data = None
+                if not match.find(class_="match-cta").find("a"):
+                    if match_number_data.getText().strip() == "H2H":
+                        print("No match link found")
+                        match_number_data = match.find(class_="match-cta").find_all(
+                            "a"
+                        )[-1]
+                match_score_data = match.find_all(class_="score-item")
+                scores = []
+                for score in match_score_data:
+                    if not score.find("span"):
                         continue
-                    matches = match.find_all("tr")
-                    for m in matches:
-                        match_data = {}
-                        if not m.find(class_="day-table-score").find("a"):
-                            continue
-                        match_number_data = m.find(class_="day-table-score").find("a")
-                        match_score_text = re.sub(
-                            r"\s+", "_", match_number_data.getText().strip()
-                        )
-                        match_data["score"] = match_score_text
-                        if "(W/O)" in match_score_text or "(RET)" in match_score_text:
-                            continue
-                        if not m.find(class_="day-table-score").find(
-                            class_="not-in-system"
-                        ):
-                            match_link = match_number_data["href"]
-                            match_data["match_link"] = match_link
-                        elif tourney["tourney_id"] == "20230308_0404" and m.find(
-                            class_="day-table-score"
-                        ).find(class_="not-in-system"):
-                            continue
-                        match_data["tourney_name"] = (
-                            tourney["tourney_name"].replace("-", " ").title()
-                        )
-                        match_data["surface"] = tourney["tourney_surface"]
-                        match_data["round"] = round
-                        match_data["tourney_level"] = tourney["tourney_level"]
-                        match_data["tourney_location"] = tourney["tourney_location"]
-                        match_data["tourney_IOC"] = tourney["tourney_IOC"]
-                        name_data = m.find_all(class_="day-table-name")
-                        A_name = name_data[0].find("a").getText().title()
-                        B_name = name_data[1].find("a").getText().title()
-                        try:
-                            match_data["A_atp_id"] = (
-                                name_data[0].find("a")["href"].split("/")[4]
-                            )
-                            match_data["A_atp_id"] = (
-                                name_data[1].find("a")["href"].split("/")[4]
-                            )
-                        except:
-                            print(f"ATP ID not found for {A_name} or {B_name}")
-                        match_data["A_name"] = A_name
-                        match_data["B_name"] = B_name
-                        match_list.append(match_data)
+                    score_text = score.find("span").getText().strip()
+                    if len(score.find_all("span")) > 1:
+                        score_text += score.find_all("span")[1].getText().strip()
+                    if score_text != "":
+                        scores.append(score_text)
+                match_score_text = ""
+                for i in range(int(len(scores) / 2)):
+                    if i != 0:
+                        match_score_text += "_"
+                    if len(scores[i]) == 2:
+                        tie_break_score = scores[i][1]
+                    elif len(scores[i + int(len(scores) / 2)]) == 2:
+                        tie_break_score = scores[i + int(len(scores) / 2)][1]
+                    else:
+                        tie_break_score = ""
+                    match_score_text += scores[i][0]
+                    match_score_text += scores[i + int(len(scores) / 2)][0]
+                    match_score_text += tie_break_score
+                match_data["score"] = match_score_text
+                if (
+                    "(W/O)" in match_score_text
+                    or "(RET)" in match_score_text
+                    or len(scores) % 2 != 0
+                ):
+                    continue
+                match_link = match_number_data["href"] if match_number_data else ""
+                match_data["match_link"] = match_link
+                match_data["tourney_name"] = (
+                    tourney["tourney_name"].replace("-", " ").title()
+                )
+                match_data["surface"] = tourney_surface
+                match_data["round"] = round
+                match_data["tourney_level"] = tourney["tourney_level"]
+                match_data["tourney_location"] = tourney["tourney_location"]
+                match_data["tourney_IOC"] = tourney["tourney_IOC"]
+                A_name = match.find_all(class_="name")[0].find("a").getText().title()
+                B_name = match.find_all(class_="name")[1].find("a").getText().title()
+                if A_name == "Bye" or B_name == "Bye":
+                    continue
+                try:
+                    match_data["A_atp_id"] = (
+                        match.find_all(class_="name")[0].find("a")["href"].split("/")[4]
+                    )
+                    match_data["A_atp_id"] = (
+                        match.find_all(class_="name")[1].find("a")["href"].split("/")[4]
+                    )
+                except:
+                    print(f"ATP ID not found for {A_name} or {B_name}")
+                match_data["A_name"] = A_name
+                match_data["B_name"] = B_name
+                match_list.append(match_data)
+                print(
+                    match_data["tourney_name"],
+                    match_data["surface"],
+                    match_data["tourney_level"],
+                    match_data["tourney_location"],
+                    match_data["tourney_IOC"],
+                    match_data["round"],
+                    match_data["A_name"],
+                    match_data["B_name"],
+                    match_data["score"],
+                )
             tourney_read = True
 
         except Exception as e:
-            print(e)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback_details = traceback.extract_tb(exc_traceback)
+            print(
+                "Error getting ATP match data.",
+                traceback_details[-1].filename,
+                traceback_details[-1].lineno,
+                traceback_details[-1].name,
+                e,
+            )
+
             error_count += 1
             print(".Error count: ", error_count)
             if error_count > 2:
@@ -391,6 +480,8 @@ def get_atp_match_data(driver, tourney):
         #     get_match_stats(driver, match)
 
     df = pd.DataFrame(match_list)
+
+    print(f"Returning {len(match_list)} matches for {tourney['tourney_name']}")
 
     return match_list
 
@@ -627,7 +718,7 @@ def get_itf_year_data(driver, year, update=False, start_date="", end_date=""):
         ) - timedelta(days=6)
         tourney_date = datetime.strftime(tourney_datetime, "%Y%m%d")
         if update == True:
-            if tourney_datetime < datetime.now() - timedelta(days=10):
+            if tourney_datetime < datetime.now() - timedelta(days=9):
                 continue
         else:
             if tourney_datetime < start_date or tourney_datetime > end_date:
@@ -649,9 +740,10 @@ def get_itf_year_data(driver, year, update=False, start_date="", end_date=""):
                 .title()
             )
         tourney_number = tourney.find("a")["href"].split("/")[6].split("-")[2]
-        tourney_number = (
-            tourney_number + tourney.find("a")["href"].split("/")[6].split("-")[3]
-        )
+        tourney_num = tourney.find("a")["href"].split("/")[6].split("-")[3]
+        if tourney_num[:3] == "202":
+            tourney_num = tourney.find("a")["href"].split("/")[6].split("-")[4]
+        tourney_number = tourney_number + tourney_num
         tourney_level = "F"
         tourney_surface = (
             tourney.find(class_="surface")
@@ -712,61 +804,58 @@ def get_year_data(
 
     soup = BS(content, features="html.parser")
 
-    tourney_list_data = soup.find_all(class_="tourney-result")
+    tourney_list_data = soup.find_all(class_="events")
     tourney_list = []
 
     for tourney in tourney_list_data:
         tourney_date = datetime.strptime(
-            tourney.find(class_="tourney-dates").getText().strip(), "%Y.%m.%d"
+            tourney.find(class_="Date").getText().strip().split(" - ")[1], "%d %B, %Y"
         )
+        tourney_date = tourney_date - timedelta(days=7)
         if update == True:
-            if tourney_date < datetime.now() - timedelta(days=10):
+            if tourney_date < datetime.now() - timedelta(days=20):
                 continue
         else:
-            if tourney_date < start_date or tourney_date > end_date:
+            if tourney_date < start_date - timedelta(days=7) or tourney_date > end_date:
                 continue
-        if tourney_date > datetime.now() + timedelta(days=4):
-            continue
-        try:
-            tourney_name_href = tourney.find(class_="title-content").find("a")["href"]
-        except Exception as e:
-            print("Tournament links not found", e)
+        if tourney_date > datetime.now() + timedelta(days=14):
             continue
         tourney_link_href = ""
         try:
-            tourney_link_href = tourney.find_all(class_="tourney-details")[4].find("a")[
-                "href"
-            ]
+            tourney_link_href = tourney.find(class_="results")["href"]
+            tourney_link = tourney_link_href.replace("live-scores", "results")
         except:
-            pass
-        split_href = tourney_name_href.split("/")
-        tourney_name = split_href[3]
-        tourney_number = split_href[4]
+            try:
+                tourney_link_href = tourney.find(class_="tournament__profile")["href"]
+                tourney_link = tourney_link_href.replace("overview", f"{year}/results")
+                tourney_link = tourney_link.replace("tournaments", "scores/archive")
+            except Exception as e:
+                print("Tournament links not found", e)
+                continue
+
+        split_href = tourney_link.split("/")
+        tourney_name = split_href[4]
+        tourney_number = split_href[5]
         tourney_level_string = ""
-        if tourney.find(class_="tourney-badge-wrapper").find("img"):
-            tourney_level_data = tourney.find(class_="tourney-badge-wrapper").find(
-                "img"
-            )["src"]
-            tourney_level_string = tourney_level_data.split("/")[6][15:-4]
+        if tourney.find(class_="events_banner"):
+            tourney_level_data = tourney.find(class_="events_banner")["src"]
+            tourney_level_string = tourney_level_data.split("/")[-1][15:-4]
         tourney_level = ""
         if tourney_level_string == "grandslam":
             tourney_level = "G"
+            tourney_date = tourney_date - timedelta(days=7)
         elif tourney_level_string == "1000":
             tourney_level = "M"
+            tourney_date = tourney_date - timedelta(days=7)
         elif tourney_level_string == "challenger":
             tourney_level = "C"
         else:
             tourney_level = "A"
-        tourney_surface = (
-            tourney.find_all(class_="tourney-details")[1]
-            .find(class_="item-value")
-            .getText()
-            .strip()
-        )
-        tourney_link = tourney_link_href.replace("live-scores", "results")
         if tourney_date > datetime.now() + timedelta(days=7):
             continue
-        tourney_location = tourney.find(class_="tourney-location").getText().strip()
+        tourney_location = (
+            tourney.find(class_="venue").getText().replace("|", "").strip()
+        )
         tourney_IOC = get_ioc_code(tourney_location)
         tourney_date = tourney_date.strftime("%Y%m%d")
         tourney_id = f"{tourney_date}_{str(tourney_number).zfill(4)}"
@@ -781,7 +870,6 @@ def get_year_data(
                 "tourney_level": tourney_level,
                 "tourney_location": tourney_location,
                 "tourney_IOC": tourney_IOC,
-                "tourney_surface": tourney_surface,
                 "tourney_link": tourney_link,
             }
         )
@@ -791,7 +879,6 @@ def get_year_data(
             tourney_level,
             tourney_location,
             tourney_IOC,
-            tourney_surface,
         )
 
     print("Returning year data")
@@ -799,17 +886,17 @@ def get_year_data(
 
 
 def get_atp_fixture_data(driver, tourney):
-    fixture_list = []
     page_loaded = False
     error_count = 0
     while not page_loaded and error_count < 3:
         try:
+            tourney_surface = get_atp_tourney_surface(driver, tourney)
             driver.get(
                 f"https://www.atptour.com/en/scores/current/{tourney['tourney_name']}/{tourney['tourney_number']}/daily-schedule"
             )
             sleep(1.5)
             WebDriverWait(driver, 3).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "dropdown-holder"))
+                EC.presence_of_element_located((By.CLASS_NAME, "tournament"))
             )
             page_loaded = True
         except:
@@ -821,73 +908,40 @@ def get_atp_fixture_data(driver, tourney):
         or not driver.current_url.split("/")[-1] == "daily-schedule"
     ):
         print("No fixture data found for", tourney["tourney_id"])
-        return fixture_list
+        return []
 
-    page_source = BS(driver.page_source, features="html.parser")
+    fixture_data = BS(driver.page_source, features="html.parser")
+    fixture_list_data = fixture_data.find_all(class_="schedule")
 
-    dropdown_holder = page_source.find(class_="dropdown-holder")
-    options = dropdown_holder.find_all("li")
+    fixture_list = []
 
-    # Get list of highest 3 data values from options
-    data_values = []
-    for option in options:
-        data_values.append(int(option["data-value"]))
-    max_data_values = sorted(data_values, reverse=True)[:3]
+    round = ""
+    for fixture in fixture_list_data:
+        name_data = fixture.find_all(class_="name")
+        try:
+            if not fixture.find(class_="player"):
+                continue
+            if fixture.find(class_="match-type"):
+                continue
+            if len(fixture.find_all(class_="name")) > 2:
+                continue
+        except:
+            continue
+        fixture_dict = {}
+        round = fixture.find(class_="schedule-type").getText().strip()
+        fixture_dict["round"] = get_round_string(round)
+        if fixture_dict["round"] == "":
+            continue
 
-    for value in max_data_values:
-        page_loaded = False
-        error_count = 0
-        while not page_loaded and error_count < 3:
-            try:
-                driver.get(
-                    f"https://www.atptour.com/en/scores/current/{tourney['tourney_name']}/{tourney['tourney_number']}/daily-schedule?day={str(value)}"
-                )
-                sleep(1.5)
-                WebDriverWait(driver, 12).until(
-                    EC.presence_of_element_located(
-                        (By.CLASS_NAME, "sectioned-day-tables")
-                    )
-                )
-                page_loaded = True
-            except:
-                error_count += 1
-                sleep(1.5)
-
-        if page_loaded == False:
-            print("No fixture data found for", tourney["tourney_id"])
-            return fixture_list
-
-        fixture_data = BS(driver.page_source, features="html.parser")
-        fixture_list_table = fixture_data.find(class_="sectioned-day-tables")
-
-        round = ""
-        for tbody in fixture_list_table.find_all("tbody"):
-            matches = tbody.find_all("tr")
-            for m in matches:
-                try:
-                    if not m.find(class_="day-table-name"):
-                        continue
-                    if m.find("span", class_="tour-association-wta"):
-                        continue
-                    if len(m.find(class_="day-table-name").find_all("a")) > 1:
-                        continue
-                    if m.find(class_="day-table-score").getText().strip() != "-":
-                        continue
-                except:
-                    continue
-                fixture = {}
-                round = m.find(class_="day-table-round").getText().strip()
-                fixture["round"] = round
-                name_data = m.find_all(class_="day-table-name")
-                A_name = name_data[0].find("a").getText().title()
-                B_name = name_data[1].find("a").getText().title()
-                fixture["A_name"] = A_name
-                fixture["B_name"] = B_name
-                fixture["tourney_surface"] = tourney["tourney_surface"]
-                fixture["tourney_level"] = tourney["tourney_level"]
-                fixture["tourney_name"] = tourney["tourney_name"]
-                fixture["tourney_IOC"] = tourney["tourney_IOC"]
-                fixture_list.append(fixture)
+        A_name = name_data[0].find("a").getText().title()
+        B_name = name_data[1].find("a").getText().title()
+        fixture_dict["A_name"] = A_name
+        fixture_dict["B_name"] = B_name
+        fixture_dict["tourney_surface"] = tourney_surface
+        fixture_dict["tourney_level"] = tourney["tourney_level"]
+        fixture_dict["tourney_name"] = tourney["tourney_name"]
+        fixture_dict["tourney_IOC"] = tourney["tourney_IOC"]
+        fixture_list.append(fixture_dict)
 
     # add minimum match numbers to each fixture
     for fixture in fixture_list:
@@ -911,9 +965,13 @@ def get_atp_fixture_data(driver, tourney):
             fixture["match_id"] = tourney["tourney_id"] + "_237"
         elif fixture["round"] == "F":
             fixture["match_id"] = tourney["tourney_id"] + "_239"
+        else:
+            fixture["match_id"] = tourney["tourney_id"] + "_000"
 
     print(
-        "Returning fixture data for", tourney["tourney_name"], tourney["tourney_date"]
+        f"Returning {len(fixture_list)} fixtures for",
+        tourney["tourney_name"],
+        tourney["tourney_date"],
     )
 
     return fixture_list
@@ -922,10 +980,10 @@ def get_atp_fixture_data(driver, tourney):
 def worker_thread(task_queue, position_queue, db_file, overwrite=True):
     global database_lock
     if platform.system() == "Windows":
-        DRIVER_PATH = "chromedriver.exe"
+        DRIVER_PATH = "chromedriver_files/chromedriver.exe"
     elif platform.system() == "Darwin":  # This is the value returned for macOS
-        DRIVER_PATH = "chromedriver"
-    driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=True)
+        DRIVER_PATH = "chromedriver_files/chromedriver"
+    driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=False)
 
     window_position = position_queue.get()
     driver.set_window_size(window_position["width"], window_position["height"])
@@ -948,9 +1006,10 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
             tourney_level_string = tourney["tourney_level"]
             tourney_id_string = tourney["tourney_id"]
             tourney_ioc_string = tourney["tourney_IOC"]
+            tourney_link = tourney["tourney_link"]
 
             print(
-                f"Name: {tourney_name_string}. Level: {tourney_level_string}. ID: {tourney_id_string}. IOC: {tourney_ioc_string}"
+                f"Name: {tourney_name_string}. Level: {tourney_level_string}. ID: {tourney_id_string}. IOC: {tourney_ioc_string}. Link: {tourney_link}"
             )
 
             matches_found = None
@@ -959,21 +1018,18 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
                     "SELECT COUNT(*) FROM tennis_matches WHERE (match_id LIKE ? AND round = 'F')",
                     (f"{tourney_id}%",),
                 )
-                print("Final found in tournament:", tourney_id)
                 matches_found = c.fetchone()[0]
 
             fixture_list = []
             match_list = []
 
             tourney_datetime = datetime.strptime(tourney["tourney_date"], "%Y%m%d")
-            if tourney_datetime > datetime.now() - timedelta(days=10) and tourney[
+            if tourney_datetime > datetime.now() - timedelta(days=15) and tourney[
                 "tourney_level"
             ] in ["A", "M", "G"]:
                 fixture_list = get_atp_fixture_data(driver, tourney)
 
-            if matches_found == 1:
-                print(f"Skipping {tourney_id} as it already exists in the database.")
-            else:
+            if matches_found != 1:
                 if tourney["tourney_level"] == "F":
                     match_list = get_itf_match_data(driver, tourney)
                 else:
@@ -997,13 +1053,14 @@ def worker_thread(task_queue, position_queue, db_file, overwrite=True):
         task_queue.task_done()
         position_queue.put(window_position)
 
+    driver.close()
     driver.quit()
 
     while database_lock:
         sleep(3)
 
     database_lock = True
-    write_to_db(c, conn, total_matches)
+    write_to_db(c, conn, total_matches, overwrite=overwrite)
     write_to_pd(total_fixtures)
     database_lock = False
 
@@ -1044,9 +1101,9 @@ def scrape_data_to_sqlite(
             )
 
     if platform.system() == "Windows":
-        DRIVER_PATH = "chromedriver.exe"
+        DRIVER_PATH = "chromedriver_files/chromedriver.exe"
     elif platform.system() == "Darwin":  # This is the value returned for macOS
-        DRIVER_PATH = "chromedriver"
+        DRIVER_PATH = "chromedriver_files/chromedriver"
 
     # Calculate window positions
     screen_width, screen_height = get_monitors()[0].width, get_monitors()[0].height
@@ -1066,7 +1123,7 @@ def scrape_data_to_sqlite(
 
     for year in range(start_year, end_year + 1):
         tasks = queue.PriorityQueue()
-        driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=True)
+        driver = uc.Chrome(driver_executable_path=DRIVER_PATH, headless=False)
         for tennis_level in included_levels:
             if tennis_level == "ITF":
                 tourney_list = get_itf_year_data(
@@ -1094,9 +1151,12 @@ def scrape_data_to_sqlite(
                     end_date=end_date,
                 )
             for tourney in tourney_list:
+                print(f"Adding {tourney['tourney_id']} to queue")
                 tasks.put((tourney["tourney_id"], tourney))
             print("Length of Tournament List:", len(tourney_list))
             print("Tasks in queue:", tasks.qsize())
+        driver.close()
+        driver.quit()
 
         # Create a separate queue for window positions
         position_queue = queue.Queue()
@@ -1124,4 +1184,6 @@ def scrape_data_to_sqlite(
 
 
 if __name__ == "__main__":
-    scrape_data_to_sqlite(2023, 2023)
+    scrape_data_to_sqlite(
+        2018, 2021, update=False, overwrite=True, included_levels=["Chall", "ATP"]
+    )

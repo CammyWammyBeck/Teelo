@@ -145,12 +145,18 @@ def find_best_name_match(name, conn):
 
 
 def load_data():
-    data_path = "data/predictions.xlsx"
-    book = openpyxl.load_workbook(data_path, read_only=True)
-    ws = book["Predictions"]
-    data = ws.values
-    headers = next(data)[0:]
-    df = pd.DataFrame(data, columns=headers)
+    # If excel file is already open, return empty dataframe
+    try:
+        data_path = "data/predictions.xlsx"
+        book = openpyxl.load_workbook(data_path, read_only=True)
+        ws = book["Predictions"]
+        data = ws.values
+        headers = next(data)[0:]
+        df = pd.DataFrame(data, columns=headers)
+        book.close()
+    except PermissionError:
+        print("Excel file is already open.")
+        df = pd.DataFrame()
     return df
 
 
@@ -167,7 +173,9 @@ def swap_players(row):
 
 
 def save_predictions(df, predictions, stats_list):
-    data_path = "data/predictions_test.xlsx"
+    data_path = "data/predictions.xlsx"
+
+    # Load the workbook
     book = openpyxl.load_workbook(data_path)
     ws = book["Predictions"]
 
@@ -187,7 +195,9 @@ def save_predictions(df, predictions, stats_list):
         for stat in stats_list:
             ws.cell(row=stat["index"] + 2, column=column_index, value=stat["stats"][i])
 
+    # Save and close the workbook
     book.save(data_path)
+    book.close()
 
 
 def predict_main():
@@ -206,6 +216,11 @@ def predict_main():
 
     print("Data loaded")
 
+    # Check if X is empty
+    if not X["AB"].any():
+        print("No new matches to predict")
+        return []
+
     # Transform both sets of data
     X_transformed = {
         "AB": NN_transformer.transform(X["AB"]),
@@ -221,8 +236,25 @@ def predict_main():
     # Calculate the final prediction as the average of A vs B and 1 - B vs A
     final_predictions = (predictions["AB"] + (1 - predictions["BA"])) / 2
 
+    # Prepare list of matches with predictions
+    matches_with_predictions = []
+    for index, row in df.iterrows():
+        if row["p"] == "" or pd.isnull(row["p"]):
+            matches_with_predictions.append(
+                {
+                    "match_id": row["match_id"],
+                    "A_name": row["A_name"],
+                    "B_name": row["B_name"],
+                    "tourney_name": row["tourney_name"],
+                    "round": row["round"],
+                    "prediction": final_predictions[len(matches_with_predictions)][0],
+                }
+            )
+
     # Save the final predictions
     save_predictions(df, final_predictions, stats_list)
+
+    return matches_with_predictions
 
 
 if __name__ == "__main__":

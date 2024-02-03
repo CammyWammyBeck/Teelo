@@ -1,104 +1,117 @@
 :root {
-  --palette-mode: light;
+    --palette-mode: light;
 
-  --palette-primary-main: #e4572e;
-  --palette-primary-contrastText: #f8f9f1;
+    --palette-primary-main: #e4572e;
+    --palette-primary-contrastText: #f8f9f1;
 
-  --palette-secondary-main: #7293a0;
-  --palette-secondary-contrastText: #f8f9f1;
+    --palette-secondary-main: #7293a0;
+    --palette-secondary-contrastText: #f8f9f1;
 
-  --palette-background-default: #f8f9f1;
-  --palette-background-paper: #f8f9f1;
+    --palette-background-default: #f8f9f1;
+    --palette-background-paper: #f8f9f1;
 
-  --palette-text-primary: #393e41;
-  --palette-text-secondary: #4c5357;
-  --palette-text-disabled: #4c5357;
-  --palette-text-hint: #4c5357;
+    --palette-text-primary: #393e41;
+    --palette-text-secondary: #4c5357;
+    --palette-text-disabled: #4c5357;
+    --palette-text-hint: #4c5357;
 
-  --palette-divider: #393e41;
+    --palette-divider: #393e41;
 }
-/* all children */
-.data-grid-header {
-  background-color: #e4572e;
-  color: #f8f9f1;
+
+body {
+    background-color: var(--palette-background-default);
+    color: var(--palette-text-primary);
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+    font-size: 0.9rem;
 }
 
 .data-grid-header div {
-  white-space: break-spaces !important;
-  line-height: normal;
-}
-
-div.no-underline-link a {
-  text-decoration: none;
-  color: var(--palette-secondary-main);
+    white-space: break-spaces !important;
+    line-height: normal;
 }
 
 .main-container {
-  margin-top: 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: row;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: row;
 }
 
 .matches-container {
-  display: flex;
-  flex-direction: column;
-  flex: 2;
-  margin: 1rem;
-}
-
-.filters-container {
-  margin: 1rem;
+    display: flex;
+    flex-direction: column;
+    flex: 2;
+    margin: 1rem;
 }
 
 .player-rankings-container {
-  box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin: 1rem;
 }
 
-.player-rankings-container div {
-  max-width: 100% !important;
-  margin: 0 !important;
-}
-
-.MuiDataGrid-iconButtonContainer,
-.MuiDataGrid-menuIcon {
-  display: none !important;
-}
-
-.ranking-grid-header div {
-  text-align: start !important;
-  justify-content: start !important;
+.filters-container {
+    margin: 1rem;
 }
 
 .align-left,
 .align-left div {
-  justify-content: start !important;
-  text-align: start !important;
+    justify-content: start !important;
+    text-align: start !important;
 }
 
 .fs-7 {
-  font-size: 0.9rem;
+    font-size: 0.9rem;
 }
 
 .fs-8 {
-  font-size: 0.8rem;
+    font-size: 0.8rem;
 }
 
 .fs-9 {
-  font-size: 0.7rem;
+    font-size: 0.7rem;
 }
 
 .fs-10 {
-  font-size: 0.6rem;
+    font-size: 0.6rem;
+}
+
+.ag-header-row.ag-header-row-column {
+    border-radius: 5px !important;
+    background-color: var(--palette-primary-main);
+    color: var(--palette-primary-contrastText);
+    display: flex;
+    height: 100% !important;
+    max-height: 75px;
+}
+
+.ag-header.ag-pivot-off,
+.ag-header-cell {
+    height: 100% !important;
+    max-height: 75px;
+}
+
+.ag-header-cell-text {
+    padding: 0.5rem;
+}
+
+.ag-theme-alpine {
+    --ag-grid-size: 20px !important;
+}
+
+.teelo-link a {
+    color: var(--palette-primary-main);
+    font-weight: normal;
 }
 
 /* Smaller font size for screens less than 600px wide */
-@media (max-width: 1000px) {
-  .data-grid-header {
-    font-size: 0.7rem;
-  }
+@media (max-width: 1400) {
+    .data-grid-header {
+        font-size: 0.7rem;
+    }
 
-  .main-container {
-    flex-direction: column;
-  }
+    .main-container {
+        flex-direction: column;
+    }
 }

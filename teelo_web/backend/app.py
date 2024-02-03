@@ -20,6 +20,7 @@ parent_dir = os.path.abspath(
 sys.path.append(parent_dir)
 
 from scripts.data_helpers import get_match_date, simplify_name
+from scripts.stats import get_all_matches_for_player
 
 
 app = Flask(__name__)
@@ -49,6 +50,10 @@ class Match(db.Model):
     B_elo = db.Column(db.Integer, nullable=False)
 
     def serialize(self):
+        if self.A_elo == None:
+            self.A_elo = 1500
+        if self.B_elo == None:
+            self.B_elo = 1500
         return {
             "match_id": self.match_id,
             "match_date": get_match_date(self.match_id, self.round, self.tourney_level),
@@ -83,74 +88,37 @@ class Player(db.Model):
 
 @app.route("/matches", methods=["GET"])
 def get_matches():
+    print("getting matches")
+    start = int(request.args.get("start", 0))
+    end = int(request.args.get("end", 100))
     player_name = request.args.get("player_name")
+    print(player_name)
     tourney_level = request.args.get("tourney_level")
     surface = request.args.get("surface")
 
-    if tourney_level:
-        tourney_level = tourney_level.split(",")
-    if surface:
-        surface = surface.split(",")
-
     query = Match.query
 
-    if player_name and player_name != "":
-        query = query.filter(
-            (Match.A_name == player_name) | (Match.B_name == player_name)
-        )
     if tourney_level:
+        tourney_level = tourney_level.split(",")
         query = query.filter(Match.tourney_level.in_(tourney_level))
     if surface:
+        surface = surface.split(",")
         query = query.filter(Match.surface.in_(surface))
 
-    matches = query.order_by(desc(Match.match_id)).limit(500).all()
-
-    if len(matches) == 0 and player_name != "":
-        # search for matches where player_name is in the name
-        print("searching for matches where player_name is in the name")
-        query = Match.query
-        if tourney_level:
-            query = query.filter(Match.tourney_level.in_(tourney_level))
-        if surface:
-            query = query.filter(Match.surface.in_(surface))
-        matches = (
-            query.filter(
-                (Match.A_name.like(f"%{player_name}%"))
-                | (Match.B_name.like(f"%{player_name}%"))
-            )
-            .order_by(desc(Match.match_id))
-            .limit(500)
-            .all()
+    if player_name:
+        query = query.filter(
+            (Match.A_name.ilike(f"%{player_name}%"))
+            | (Match.B_name.ilike(f"%{player_name}%"))
         )
 
-    if len(matches) == 0 and player_name != "":
-        # search for close matches to player_name, using jarowinkler distance
-        print("searching for close matches")
-        # start timer
-        start = timeit.default_timer()
-        matches = []
-        offset = 0
-        while len(matches) < 500:
-            query = Match.query
-            if tourney_level:
-                query = query.filter(Match.tourney_level.in_(tourney_level))
-            if surface:
-                query = query.filter(Match.surface.in_(surface))
-            potential_matches = (
-                query.order_by(desc(Match.match_id)).offset(offset).limit(500).all()
-            )
-            for match in potential_matches:
-                jw_distance_A = jaro_winkler_similarity(player_name, match.A_name)
-                jw_distance_B = jaro_winkler_similarity(player_name, match.B_name)
-                if jw_distance_A > 0.9 or jw_distance_B > 0.9:
-                    matches.append(match)
-                    print(f"found match: {match.A_name} vs {match.B_name}")
-            offset += 500
-            # lap timer
-            stop = timeit.default_timer()
-            if len(potential_matches) < 500 or stop - start > 15:
-                break
-        matches = matches[:100]
+    # Replace your limit logic with the following:
+    matches = (
+        query.order_by(desc(Match.match_id)).offset(start).limit(end - start).all()
+    )
+
+    print("List of matches")
+    for match in matches:
+        print(match.match_id, match.A_name, match.B_name)
 
     return jsonify([match.serialize() for match in matches])
 
@@ -213,32 +181,34 @@ def get_player_rankings():
 
     # Querying matches in descending order of match_id
     # Only query matches that are in the past 12 months
+    # Convert match id of format YYYYMMDD_XXXX_XXX to datetime object first to compare to current date
     matches = (
         Match.query.filter(
-            Match.match_id > current_date.year * 10000 + (current_date.month - 12) * 100
+            Match.match_id.like(f"{current_date.year - 1}%")
+            | Match.match_id.like(f"{current_date.year}%")
         )
         .order_by(desc(Match.match_id))
         .all()
     )
 
-    active_player_data = (
-        Player.query.filter(Player.isActive == 1).order_by(Player.player).all()
-    )
-    active_players = [player.player for player in active_player_data]
-
     # Looping through matches to get the most recent ELO for each player
     rankings = {}
     for match in matches:
-        if match.A_name not in rankings and match.A_name in active_players:
+        if match.A_elo == None:
+            match.A_elo = 1500
+        if match.B_elo == None:
+            match.B_elo = 1500
+
+        if match.A_name not in rankings:
             rankings[match.A_name] = round(match.A_elo, 0)
-        if match.B_name not in rankings and match.B_name in active_players:
+        if match.B_name not in rankings:
             rankings[match.B_name] = round(match.B_elo, 0)
 
     sorted_rankings = sorted(rankings.items(), key=lambda x: x[1], reverse=True)
 
     # Convert sorted_rankings into list of name-elo pairs with rank number for each
     sorted_rankings = [
-        {"rank": i + 1, "name": name, "elo": elo}
+        {"rank": i + 1, "name": name, "elo": elo, "id": i + 1}
         for i, (name, elo) in enumerate(sorted_rankings)
     ]
 
@@ -248,5 +218,60 @@ def get_player_rankings():
     return sorted_rankings[:num_rankings]
 
 
+@app.route("/get_player_info", methods=["GET"])
+def get_player_stats():
+    player_name = request.args.get("player_name")
+
+    player_matches = get_all_matches_for_player(player_name)
+
+    player_stats = get_player_statistics(player_name, player_matches)
+
+    return jsonify(player_stats)
+
+
+def get_all_matches_for_player(player_name):
+    player_name = simplify_name(player_name)
+    matches = Match.query.filter(
+        (Match.A_simplified_name == player_name)
+        | (Match.B_simplified_name == player_name)
+    ).all()
+
+    return matches
+
+
+def get_player_statistics(player_name, matches):
+    player_name = simplify_name(player_name)
+
+    match_count = len(matches)
+    win_count = 0
+    loss_count = 0
+    current_elo = 1500
+    peak_elo = 1500
+    for match in matches:
+        if match.A_simplified_name == player_name:
+            win_count += 1
+        else:
+            loss_count += 1
+
+        player_elo = (
+            int(match.A_elo)
+            if match.A_simplified_name == player_name
+            else int(match.B_elo)
+        )
+        if player_elo > peak_elo:
+            peak_elo = player_elo
+
+        if win_count + loss_count == match_count:
+            current_elo = player_elo
+
+    return [
+        {"value_name": "Match Count", "value": match_count},
+        {"value_name": "Win Count", "value": win_count},
+        {"value_name": "Loss Count", "value": loss_count},
+        {"value_name": "Current Elo", "value": current_elo},
+        {"value_name": "Peak Elo", "value": peak_elo},
+    ]
+
+
 if __name__ == "__main__":
-    app.run(debug=True, host="192.168.20.3", port=5000)
+    app.run(debug=True, host="192.168.20.4", port=5000)

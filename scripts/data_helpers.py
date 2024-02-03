@@ -136,41 +136,44 @@ def get_ioc_code(location):
     else:  # It's a single part location like 'Costa do Sauipe' or 's-Hertogenbosch'
         part1 = location
 
-    # Check if part1 is a country by calling the REST Countries API
-    response = requests.get(
-        f"https://restcountries.com/v3.1/name/{part1}?fullText=true",
-    )
-    if response.status_code == 200:  # If status is OK, it means it's a country
-        data = response.json()
-        # Not all countries may have an IOC code
-        return data[0].get("cioc", data[0].get("cca3", None))
-
-    # If part1 is not a country, we check if part2 is a country, if it exists
-    if part2:
+    try:
+        # Check if part1 is a country by calling the REST Countries API
         response = requests.get(
-            f"https://restcountries.com/v3.1/name/{part2}?fullText=true",
+            f"https://restcountries.com/v3.1/name/{part1}?fullText=true",
         )
         if response.status_code == 200:  # If status is OK, it means it's a country
             data = response.json()
             # Not all countries may have an IOC code
             return data[0].get("cioc", data[0].get("cca3", None))
 
-    # If we are here, either both parts were not countries or we had only one part and it wasn't a country
-    # We now treat the part1 as a city and use Nominatim API to get the country information from the city
-    response = requests.get(
-        f"https://nominatim.openstreetmap.org/search?city={part1}&format=json"
-    )
-    if response.status_code == 200:
-        data = response.json()
-        if data:  # if data is not empty
-            country = data[0]["display_name"].split(", ")[-1]
+        # If part1 is not a country, we check if part2 is a country, if it exists
+        if part2:
             response = requests.get(
-                f"https://restcountries.com/v3.1/name/{country}?fullText=true"
+                f"https://restcountries.com/v3.1/name/{part2}?fullText=true",
             )
-            if response.status_code == 200:
+            if response.status_code == 200:  # If status is OK, it means it's a country
                 data = response.json()
                 # Not all countries may have an IOC code
                 return data[0].get("cioc", data[0].get("cca3", None))
+
+        # If we are here, either both parts were not countries or we had only one part and it wasn't a country
+        # We now treat the part1 as a city and use Nominatim API to get the country information from the city
+        response = requests.get(
+            f"https://nominatim.openstreetmap.org/search?city={part1}&format=json"
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data:  # if data is not empty
+                country = data[0]["display_name"].split(", ")[-1]
+                response = requests.get(
+                    f"https://restcountries.com/v3.1/name/{country}?fullText=true"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    # Not all countries may have an IOC code
+                    return data[0].get("cioc", data[0].get("cca3", None))
+    except:
+        pass
 
     # If we are here, we couldn't find the country
     print(f"Couldn't find the country for {location}")

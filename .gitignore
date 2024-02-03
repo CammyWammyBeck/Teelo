@@ -1,8 +1,10 @@
-Archive/
-data/
-teelo_app/
-.vs/
 __pycache__/
+.vs/
+Archive/
+chromedriver_files/
+data/
+models/
+teelo_app/
 venv/
-teelo_web/node_modules/
-models/rft/
+scraping_logs.logs
+training_logs.txt
