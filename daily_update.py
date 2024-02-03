@@ -5,7 +5,9 @@ import datetime
 import time
 from scripts.twitter_bot import TwitterBot
 from scripts.database_management import delete_tourney
+from scripts.get_data import get_rankings
 import sqlite3
+import traceback
 
 
 def process_and_tweet_matches(predicted_matches):
@@ -52,6 +54,49 @@ def process_and_tweet_matches(predicted_matches):
             print("Error tweeting predictions")
 
 
+def process_and_tweet_rankings(num_rankings):
+    try:
+        bot = TwitterBot(
+            "ywuziqAU1DH4mrCGe10gAtlC6",
+            "7im4z2WEj47uoK3GlnyjxMRARQ9ZHXLpUsVZqRgt6ZUVoLfrA5",
+            "1477453250471215104-Aa8njjg8JVGbJZo3n3CoCGhyNlJE2r",
+            "Xuu9DQ82TjrSE4EgZLR4YXyjmrhoF1iviYvKN6lxgHexc",
+        )
+
+        rankings_data = get_rankings(num_rankings)
+
+        if num_rankings > 0:
+            strings_to_tweet = []
+            tweet = ""
+            print(f"Tweeting {num_rankings} rankings")
+            for player in rankings_data:
+                sub_tweet = f"Rank {player['rank']} - {player['name']} ({player['elo']:.2f} ELO)"
+
+                if len(tweet) + len(sub_tweet) > 280 - 27:
+                    strings_to_tweet.append(tweet + "\n#tennis #atp #elo #rankings")
+                    tweet = ""
+
+                tweet += "\n" + sub_tweet
+
+            if len(tweet) > 0:
+                strings_to_tweet.append(
+                    tweet + "\n#tennis #atp #elo #sportstips #tennistips"
+                )
+
+            print(strings_to_tweet)
+
+            response = bot.tweet(strings_to_tweet, tweet_as_thread=True)
+            if response:
+                for tweet_response in response:
+                    print(f"Tweeted: {tweet_response})")
+            else:
+                print("Error tweeting rankings")
+    except Exception as e:
+        print("Error tweeting rankings")
+        print(e)
+        traceback.print_exc()
+
+
 def update():
     # conn = sqlite3.connect("data/matches.sqlite")
     # c = conn.cursor()
@@ -64,6 +109,7 @@ def update():
     create_elo(update=True)
     predicted_matches = predict_main()
     process_and_tweet_matches(predicted_matches)
+    process_and_tweet_rankings(10)
     return
 
 
